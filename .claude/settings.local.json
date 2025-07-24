@@ -6,7 +6,10 @@
       "Bash(npx playwright:*)",
       "Bash(mkdir:*)",
       "Bash(npm run build:*)",
-      "Bash(node dist/cli.js --help)"
+      "Bash(node dist/cli.js --help)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:crawlee.dev)"
     ],
     "deny": []
   }

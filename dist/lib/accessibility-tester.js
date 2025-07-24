@@ -93,21 +93,8 @@ class AccessibilityTester {
     }
     async runAxeScan(page) {
         return await page.evaluate(async () => {
-            // Configure axe
-            const config = {
-                rules: {
-                    'color-contrast': { enabled: true },
-                    'keyboard-navigation': { enabled: true },
-                    'focus-management': { enabled: true },
-                    'aria-usage': { enabled: true },
-                    'form-accessibility': { enabled: true },
-                    'image-alt': { enabled: true },
-                    'heading-order': { enabled: true },
-                    'landmark-usage': { enabled: true }
-                }
-            };
-            // Run axe scan
-            const results = await window.axe.run(document, config);
+            // Run axe scan with default comprehensive ruleset
+            const results = await window.axe.run(document);
             return {
                 violations: results.violations,
                 passes: results.passes,

@@ -8,7 +8,7 @@ const playwright_1 = require("playwright");
 const chalk_1 = __importDefault(require("chalk"));
 const session_manager_js_1 = require("../utils/session-manager.js");
 const progress_tracker_js_1 = require("../utils/progress-tracker.js");
-const site_crawler_js_1 = require("../lib/site-crawler.js");
+const crawlee_site_crawler_js_1 = require("../lib/crawlee-site-crawler.js");
 const screenshot_tester_js_1 = require("../lib/screenshot-tester.js");
 const seo_tester_js_1 = require("../lib/seo-tester.js");
 const accessibility_tester_js_1 = require("../lib/accessibility-tester.js");
@@ -23,7 +23,7 @@ class TestOrchestrator {
     constructor() {
         this.sessionManager = new session_manager_js_1.SessionManager();
         this.progressTracker = new progress_tracker_js_1.ProgressTracker();
-        this.siteCrawler = new site_crawler_js_1.SiteCrawler();
+        this.siteCrawler = new crawlee_site_crawler_js_1.CrawleeSiteCrawler();
         this.screenshotTester = new screenshot_tester_js_1.ScreenshotTester();
         this.seoTester = new seo_tester_js_1.SEOTester();
         this.accessibilityTester = new accessibility_tester_js_1.AccessibilityTester();

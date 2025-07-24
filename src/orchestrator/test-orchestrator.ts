@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { TestConfig, SessionSummary, PageResult, TestResult, ProgressState } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { ProgressTracker } from '../utils/progress-tracker.js';
-import { SiteCrawler } from '../lib/site-crawler.js';
+import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
 import { AccessibilityTester } from '../lib/accessibility-tester.js';
@@ -12,7 +12,7 @@ export class TestOrchestrator {
   private browser: Browser | null = null;
   private sessionManager: SessionManager;
   private progressTracker: ProgressTracker;
-  private siteCrawler: SiteCrawler;
+  private siteCrawler: CrawleeSiteCrawler;
   private screenshotTester: ScreenshotTester;
   private seoTester: SEOTester;
   private accessibilityTester: AccessibilityTester;
@@ -20,7 +20,7 @@ export class TestOrchestrator {
   constructor() {
     this.sessionManager = new SessionManager();
     this.progressTracker = new ProgressTracker();
-    this.siteCrawler = new SiteCrawler();
+    this.siteCrawler = new CrawleeSiteCrawler();
     this.screenshotTester = new ScreenshotTester();
     this.seoTester = new SEOTester();
     this.accessibilityTester = new AccessibilityTester();
