@@ -1,0 +1,42 @@
+{
+  "name": "playwright-site-scanner",
+  "version": "1.0.0",
+  "description": "A standalone CLI tool for running Playwright tests against any website",
+  "main": "dist/index.js",
+  "bin": {
+    "playwright-site-scanner": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "npm run build && npm start",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "playwright",
+    "testing",
+    "cli",
+    "website",
+    "scanner",
+    "automation"
+  ],
+  "author": "Alec",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "inquirer": "^12.8.2",
+    "playwright": "^1.54.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.8",
+    "@types/node": "^24.1.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.3"
+  }
+}
