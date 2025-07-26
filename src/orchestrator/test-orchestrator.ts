@@ -7,6 +7,9 @@ import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
 import { AccessibilityTester } from '../lib/accessibility-tester.js';
+import { SitemapTester } from '../lib/sitemap-tester.js';
+import { ContentScraper } from '../lib/content-scraper.js';
+import { SiteSummaryTester } from '../lib/site-summary-tester.js';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;
@@ -16,6 +19,9 @@ export class TestOrchestrator {
   private screenshotTester: ScreenshotTester;
   private seoTester: SEOTester;
   private accessibilityTester: AccessibilityTester;
+  private sitemapTester: SitemapTester;
+  private contentScraper: ContentScraper;
+  private siteSummaryTester: SiteSummaryTester;
 
   constructor() {
     this.sessionManager = new SessionManager();
@@ -24,6 +30,9 @@ export class TestOrchestrator {
     this.screenshotTester = new ScreenshotTester();
     this.seoTester = new SEOTester();
     this.accessibilityTester = new AccessibilityTester();
+    this.sitemapTester = new SitemapTester();
+    this.contentScraper = new ContentScraper();
+    this.siteSummaryTester = new SiteSummaryTester();
   }
 
   async runTests(config: TestConfig): Promise<void> {
@@ -182,6 +191,23 @@ export class TestOrchestrator {
       case 'accessibility':
         const a11yResult = await this.accessibilityTester.runAccessibilityScan(page, pageUrl, sessionId);
         results.push(a11yResult);
+        break;
+
+      case 'sitemap':
+        // Sitemap is generated once per session, not per page
+        const sitemapResult = await this.sitemapTester.generateSitemap(config.url, sessionId, config.crawlSite);
+        results.push(sitemapResult);
+        break;
+
+      case 'content-scraping':
+        const contentResult = await this.contentScraper.scrapePageContent(page, pageUrl, sessionId);
+        results.push(contentResult);
+        break;
+
+      case 'site-summary':
+        // Site summary is generated once per session, not per page
+        const summaryResult = await this.siteSummaryTester.generateSiteSummary(config.url, sessionId, config.crawlSite);
+        results.push(summaryResult);
         break;
 
       default:

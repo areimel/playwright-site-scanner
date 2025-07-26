@@ -12,6 +12,9 @@ const crawlee_site_crawler_js_1 = require("../lib/crawlee-site-crawler.js");
 const screenshot_tester_js_1 = require("../lib/screenshot-tester.js");
 const seo_tester_js_1 = require("../lib/seo-tester.js");
 const accessibility_tester_js_1 = require("../lib/accessibility-tester.js");
+const sitemap_tester_js_1 = require("../lib/sitemap-tester.js");
+const content_scraper_js_1 = require("../lib/content-scraper.js");
+const site_summary_tester_js_1 = require("../lib/site-summary-tester.js");
 class TestOrchestrator {
     browser = null;
     sessionManager;
@@ -20,6 +23,9 @@ class TestOrchestrator {
     screenshotTester;
     seoTester;
     accessibilityTester;
+    sitemapTester;
+    contentScraper;
+    siteSummaryTester;
     constructor() {
         this.sessionManager = new session_manager_js_1.SessionManager();
         this.progressTracker = new progress_tracker_js_1.ProgressTracker();
@@ -27,6 +33,9 @@ class TestOrchestrator {
         this.screenshotTester = new screenshot_tester_js_1.ScreenshotTester();
         this.seoTester = new seo_tester_js_1.SEOTester();
         this.accessibilityTester = new accessibility_tester_js_1.AccessibilityTester();
+        this.sitemapTester = new sitemap_tester_js_1.SitemapTester();
+        this.contentScraper = new content_scraper_js_1.ContentScraper();
+        this.siteSummaryTester = new site_summary_tester_js_1.SiteSummaryTester();
     }
     async runTests(config) {
         const sessionSummary = {
@@ -151,6 +160,20 @@ class TestOrchestrator {
             case 'accessibility':
                 const a11yResult = await this.accessibilityTester.runAccessibilityScan(page, pageUrl, sessionId);
                 results.push(a11yResult);
+                break;
+            case 'sitemap':
+                // Sitemap is generated once per session, not per page
+                const sitemapResult = await this.sitemapTester.generateSitemap(config.url, sessionId, config.crawlSite);
+                results.push(sitemapResult);
+                break;
+            case 'content-scraping':
+                const contentResult = await this.contentScraper.scrapePageContent(page, pageUrl, sessionId);
+                results.push(contentResult);
+                break;
+            case 'site-summary':
+                // Site summary is generated once per session, not per page
+                const summaryResult = await this.siteSummaryTester.generateSiteSummary(config.url, sessionId, config.crawlSite);
+                results.push(summaryResult);
                 break;
             default:
                 console.warn(chalk_1.default.yellow(`⚠️  Unknown test type: ${testType}`));

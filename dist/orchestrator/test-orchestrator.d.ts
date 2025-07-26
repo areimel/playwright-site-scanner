@@ -7,6 +7,9 @@ export declare class TestOrchestrator {
     private screenshotTester;
     private seoTester;
     private accessibilityTester;
+    private sitemapTester;
+    private contentScraper;
+    private siteSummaryTester;
     constructor();
     runTests(config: TestConfig): Promise<void>;
     private initializeBrowser;
