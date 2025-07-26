@@ -14,6 +14,12 @@ class ProgressTracker {
         completedPages: 0,
         totalPages: 0
     };
+    phaseState = {
+        currentPhase: 0,
+        totalPhases: 3,
+        phaseName: '',
+        phaseProgress: 0
+    };
     initialize(initialState) {
         this.state = { ...initialState };
         this.displayProgress();
@@ -33,6 +39,29 @@ class ProgressTracker {
     incrementCompletedTests(count = 1) {
         this.state.completedTests += count;
         this.displayProgress();
+    }
+    // Phase-based progress tracking methods
+    startPhase(phase, phaseName) {
+        this.phaseState.currentPhase = phase;
+        this.phaseState.phaseName = phaseName;
+        this.phaseState.phaseProgress = 0;
+        console.log(chalk_1.default.blue(`\n📋 Phase ${phase}/3: ${phaseName}`));
+        console.log(chalk_1.default.gray('━'.repeat(50)));
+    }
+    updatePhaseProgress(progress) {
+        this.phaseState.phaseProgress = Math.min(100, Math.max(0, progress));
+        this.displayPhaseProgress();
+    }
+    completePhase() {
+        this.phaseState.phaseProgress = 100;
+        console.log(chalk_1.default.green(`✅ Phase ${this.phaseState.currentPhase} completed: ${this.phaseState.phaseName}\n`));
+    }
+    displayPhaseProgress() {
+        const overallProgress = ((this.phaseState.currentPhase - 1) * 100 + this.phaseState.phaseProgress) / this.phaseState.totalPhases;
+        const phaseBar = this.createProgressBar(this.phaseState.phaseProgress, 40);
+        const overallBar = this.createProgressBar(overallProgress, 40);
+        console.log(chalk_1.default.gray(`   Phase: ${phaseBar} ${this.phaseState.phaseProgress.toFixed(0)}%`));
+        console.log(chalk_1.default.cyan(`   Overall: ${overallBar} ${overallProgress.toFixed(0)}%`));
     }
     displayProgress() {
         const testProgress = this.state.totalTests > 0

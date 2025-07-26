@@ -2,51 +2,9 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { TestResult } from '../types/index.js';
+import { ScrapedContent, TestResult, HeadingData, ListData, ImageData, LinkData, PageMetadata } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
-
-interface ScrapedContent {
-  title: string;
-  headings: HeadingData[];
-  paragraphs: string[];
-  lists: ListData[];
-  images: ImageData[];
-  links: LinkData[];
-  metadata: PageMetadata;
-}
-
-interface HeadingData {
-  level: number;
-  text: string;
-  id?: string;
-}
-
-interface ListData {
-  type: 'ordered' | 'unordered';
-  items: string[];
-}
-
-interface ImageData {
-  src: string;
-  alt: string;
-  title?: string;
-  localPath?: string;
-  filename?: string;
-}
-
-interface LinkData {
-  href: string;
-  text: string;
-  isExternal: boolean;
-}
-
-interface PageMetadata {
-  description: string;
-  author: string;
-  publishDate: string;
-  modifiedDate: string;
-  keywords: string[];
-}
+import { SessionDataManager } from '../utils/session-data-store.js';
 
 export class ContentScraper {
   private sessionManager: SessionManager;
@@ -101,6 +59,51 @@ export class ContentScraper {
       testResult.endTime = new Date();
       
       console.log(chalk.red(`    ❌ Content scraping failed: ${testResult.error}`));
+    }
+
+    return testResult;
+  }
+
+  /**
+   * Scrape page content and save directly to SessionDataStore
+   * This method integrates with the parallel execution system
+   */
+  async scrapePageContentToStore(
+    page: Page,
+    pageUrl: string,
+    dataManager: SessionDataManager
+  ): Promise<TestResult> {
+    const startTime = new Date();
+    
+    const testResult: TestResult = {
+      testType: 'content-scraping',
+      status: 'pending',
+      startTime
+    };
+
+    try {
+      console.log(chalk.gray(`      📄 Scraping content from: ${pageUrl}`));
+
+      // Extract content from the page
+      const scrapedContent = await this.extractPageContent(page, pageUrl);
+
+      // Save content to the data manager (which handles images and metrics)
+      dataManager.setScrapedContent(pageUrl, scrapedContent);
+
+      testResult.status = 'success';
+      testResult.endTime = new Date();
+      
+      console.log(chalk.green(`      ✅ Content scraped: ${scrapedContent.headings.length} headings, ${scrapedContent.paragraphs.length} paragraphs, ${scrapedContent.images.length} images`));
+
+    } catch (error) {
+      testResult.status = 'failed';
+      testResult.error = error instanceof Error ? error.message : String(error);
+      testResult.endTime = new Date();
+      
+      console.log(chalk.red(`      ❌ Content scraping failed for ${pageUrl}: ${testResult.error}`));
+      
+      // Add error to data manager
+      dataManager.addError(`content-scraping-${pageUrl}`, testResult.error);
     }
 
     return testResult;

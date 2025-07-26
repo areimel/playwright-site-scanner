@@ -56,6 +56,44 @@ class SiteSummaryTester {
         }
         return testResult;
     }
+    /**
+     * Generate site summary using real scraped content from SessionDataStore
+     * This replaces the old method that used placeholder data
+     */
+    async generateSiteSummaryFromStore(dataManager) {
+        const startTime = new Date();
+        const testResult = {
+            testType: 'site-summary',
+            status: 'pending',
+            startTime
+        };
+        try {
+            console.log(chalk_1.default.gray(`    📊 Generating site summary from real content data...`));
+            // Use real page summaries from the data manager
+            const pageSummaries = dataManager.generatePageSummaries();
+            const baseUrl = dataManager.baseUrl;
+            console.log(chalk_1.default.gray(`      📄 Analyzing ${pageSummaries.length} pages with real content...`));
+            // Generate comprehensive site summary using real data
+            const siteSummary = this.generateSiteSummaryData(pageSummaries, baseUrl);
+            // Create summary report markdown
+            const summaryMarkdown = this.generateSummaryMarkdown(siteSummary);
+            // Save summary report
+            const outputPath = await this.saveSummaryReport(dataManager.sessionId, summaryMarkdown);
+            testResult.status = 'success';
+            testResult.outputPath = outputPath;
+            testResult.endTime = new Date();
+            console.log(chalk_1.default.green(`    ✅ Site summary completed with real data from ${pageSummaries.length} pages`));
+            console.log(chalk_1.default.green(`       Total words: ${siteSummary.statistics.totalWords.toLocaleString()}`));
+            console.log(chalk_1.default.green(`       Average words per page: ${siteSummary.statistics.averageWordsPerPage}`));
+        }
+        catch (error) {
+            testResult.status = 'failed';
+            testResult.error = error instanceof Error ? error.message : String(error);
+            testResult.endTime = new Date();
+            console.log(chalk_1.default.red(`    ❌ Site summary failed: ${testResult.error}`));
+        }
+        return testResult;
+    }
     async analyzePages(urls, baseUrl) {
         const summaries = [];
         // We'll use a simplified approach since we don't have access to individual page objects

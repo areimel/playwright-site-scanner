@@ -75,6 +75,52 @@ export class SitemapTester {
     return testResult;
   }
 
+  /**
+   * Generate sitemap using pre-crawled URLs (optimized version)
+   * This eliminates redundant site crawling
+   */
+  async generateSitemapFromUrls(
+    urls: string[],
+    baseUrl: string,
+    sessionId: string
+  ): Promise<TestResult> {
+    const startTime = new Date();
+    
+    const testResult: TestResult = {
+      testType: 'sitemap',
+      status: 'pending',
+      startTime
+    };
+
+    try {
+      console.log(chalk.gray(`    🗺️  Generating XML sitemap from ${urls.length} pre-crawled URLs...`));
+
+      // Generate sitemap entries using provided URLs
+      const sitemapEntries = await this.generateSitemapEntries(urls, baseUrl);
+
+      // Create XML sitemap
+      const sitemapXml = this.generateSitemapXml(sitemapEntries);
+
+      // Save sitemap to session directory
+      const outputPath = await this.saveSitemap(sessionId, sitemapXml);
+
+      testResult.status = 'success';
+      testResult.outputPath = outputPath;
+      testResult.endTime = new Date();
+      
+      console.log(chalk.green(`    ✅ Sitemap generated with ${sitemapEntries.length} URLs (no redundant crawling)`));
+
+    } catch (error) {
+      testResult.status = 'failed';
+      testResult.error = error instanceof Error ? error.message : String(error);
+      testResult.endTime = new Date();
+      
+      console.log(chalk.red(`    ❌ Sitemap generation failed: ${testResult.error}`));
+    }
+
+    return testResult;
+  }
+
   private async generateSitemapEntries(urls: string[], baseUrl: string): Promise<SitemapEntry[]> {
     const baseUrlObj = new URL(baseUrl);
     const entries: SitemapEntry[] = [];

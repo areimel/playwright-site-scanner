@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
+import { SessionDataManager } from '../utils/session-data-store.js';
 import { CrawleeSiteCrawler } from './crawlee-site-crawler.js';
 
 interface PageSummary {
@@ -92,6 +93,56 @@ export class SiteSummaryTester {
       testResult.endTime = new Date();
       
       console.log(chalk.green(`    ✅ Site summary completed for ${pageSummaries.length} pages`));
+
+    } catch (error) {
+      testResult.status = 'failed';
+      testResult.error = error instanceof Error ? error.message : String(error);
+      testResult.endTime = new Date();
+      
+      console.log(chalk.red(`    ❌ Site summary failed: ${testResult.error}`));
+    }
+
+    return testResult;
+  }
+
+  /**
+   * Generate site summary using real scraped content from SessionDataStore
+   * This replaces the old method that used placeholder data
+   */
+  async generateSiteSummaryFromStore(dataManager: SessionDataManager): Promise<TestResult> {
+    const startTime = new Date();
+    
+    const testResult: TestResult = {
+      testType: 'site-summary',
+      status: 'pending',
+      startTime
+    };
+
+    try {
+      console.log(chalk.gray(`    📊 Generating site summary from real content data...`));
+
+      // Use real page summaries from the data manager
+      const pageSummaries = dataManager.generatePageSummaries();
+      const baseUrl = dataManager.baseUrl;
+
+      console.log(chalk.gray(`      📄 Analyzing ${pageSummaries.length} pages with real content...`));
+
+      // Generate comprehensive site summary using real data
+      const siteSummary = this.generateSiteSummaryData(pageSummaries, baseUrl);
+
+      // Create summary report markdown
+      const summaryMarkdown = this.generateSummaryMarkdown(siteSummary);
+
+      // Save summary report
+      const outputPath = await this.saveSummaryReport(dataManager.sessionId, summaryMarkdown);
+
+      testResult.status = 'success';
+      testResult.outputPath = outputPath;
+      testResult.endTime = new Date();
+      
+      console.log(chalk.green(`    ✅ Site summary completed with real data from ${pageSummaries.length} pages`));
+      console.log(chalk.green(`       Total words: ${siteSummary.statistics.totalWords.toLocaleString()}`));
+      console.log(chalk.green(`       Average words per page: ${siteSummary.statistics.averageWordsPerPage}`));
 
     } catch (error) {
       testResult.status = 'failed';

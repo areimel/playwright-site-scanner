@@ -48,6 +48,37 @@ class ContentScraper {
         }
         return testResult;
     }
+    /**
+     * Scrape page content and save directly to SessionDataStore
+     * This method integrates with the parallel execution system
+     */
+    async scrapePageContentToStore(page, pageUrl, dataManager) {
+        const startTime = new Date();
+        const testResult = {
+            testType: 'content-scraping',
+            status: 'pending',
+            startTime
+        };
+        try {
+            console.log(chalk_1.default.gray(`      📄 Scraping content from: ${pageUrl}`));
+            // Extract content from the page
+            const scrapedContent = await this.extractPageContent(page, pageUrl);
+            // Save content to the data manager (which handles images and metrics)
+            dataManager.setScrapedContent(pageUrl, scrapedContent);
+            testResult.status = 'success';
+            testResult.endTime = new Date();
+            console.log(chalk_1.default.green(`      ✅ Content scraped: ${scrapedContent.headings.length} headings, ${scrapedContent.paragraphs.length} paragraphs, ${scrapedContent.images.length} images`));
+        }
+        catch (error) {
+            testResult.status = 'failed';
+            testResult.error = error instanceof Error ? error.message : String(error);
+            testResult.endTime = new Date();
+            console.log(chalk_1.default.red(`      ❌ Content scraping failed for ${pageUrl}: ${testResult.error}`));
+            // Add error to data manager
+            dataManager.addError(`content-scraping-${pageUrl}`, testResult.error);
+        }
+        return testResult;
+    }
     async extractPageContent(page, pageUrl) {
         return await page.evaluate((url) => {
             const content = {
