@@ -1,21 +1,35 @@
 import { chromium, Browser, Page } from 'playwright';
 import chalk from 'chalk';
 import { TestConfig, SessionSummary, PageResult, TestResult, ProgressState } from '../types/index.js';
+import { TestPhaseManager, ExecutionStrategy, PhaseExecutionPlan } from '../types/test-phases.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { ProgressTracker } from '../utils/progress-tracker.js';
+import { SessionDataManager } from '../utils/session-data-store.js';
+import { ParallelExecutor } from '../utils/parallel-executor.js';
 import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
 import { AccessibilityTester } from '../lib/accessibility-tester.js';
+import { SitemapTester } from '../lib/sitemap-tester.js';
+import { ContentScraper } from '../lib/content-scraper.js';
+import { SiteSummaryTester } from '../lib/site-summary-tester.js';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;
   private sessionManager: SessionManager;
   private progressTracker: ProgressTracker;
+  private dataManager: SessionDataManager | null = null;
+  private parallelExecutor: ParallelExecutor | null = null;
   private siteCrawler: CrawleeSiteCrawler;
   private screenshotTester: ScreenshotTester;
   private seoTester: SEOTester;
   private accessibilityTester: AccessibilityTester;
+  private sitemapTester: SitemapTester;
+  private contentScraper: ContentScraper;
+  private siteSummaryTester: SiteSummaryTester;
+
+  // Track all test results for session summary
+  private allTestResults: TestResult[] = [];
 
   constructor() {
     this.sessionManager = new SessionManager();
@@ -24,6 +38,9 @@ export class TestOrchestrator {
     this.screenshotTester = new ScreenshotTester();
     this.seoTester = new SEOTester();
     this.accessibilityTester = new AccessibilityTester();
+    this.sitemapTester = new SitemapTester();
+    this.contentScraper = new ContentScraper();
+    this.siteSummaryTester = new SiteSummaryTester();
   }
 
   async runTests(config: TestConfig): Promise<void> {
@@ -39,48 +56,41 @@ export class TestOrchestrator {
     };
 
     try {
-      console.log(chalk.blue('🚀 Initializing browser...'));
+      console.log(chalk.blue('🚀 Initializing browser and parallel execution...'));
       await this.initializeBrowser();
-
-      console.log(chalk.blue('🔍 Discovering pages...'));
-      const pagesToTest = await this.discoverPages(config);
-      sessionSummary.totalPages = pagesToTest.length;
-
-      console.log(chalk.green(`✅ Found ${pagesToTest.length} page(s) to test\n`));
-
-      await this.sessionManager.createSessionDirectory(sessionSummary.sessionId);
       
-      this.progressTracker.initialize({
-        currentTest: '',
-        completedTests: 0,
-        totalTests: this.calculateTotalTests(config, pagesToTest.length),
-        currentPage: '',
-        completedPages: 0,
-        totalPages: pagesToTest.length
-      });
+      // Initialize data manager and parallel executor
+      this.dataManager = new SessionDataManager(config.url, sessionSummary.sessionId);
+      this.parallelExecutor = new ParallelExecutor(this.browser!, 5);
 
-      const pageResults: PageResult[] = [];
+      // Create session directory
+      await this.sessionManager.createSessionDirectory(sessionSummary.sessionId);
 
-      for (let i = 0; i < pagesToTest.length; i++) {
-        const pageUrl = pagesToTest[i];
-        console.log(chalk.blue(`\n📄 Testing page ${i + 1}/${pagesToTest.length}: ${pageUrl}`));
-        
-        this.progressTracker.updateCurrentPage(pageUrl, i);
-        
-        const pageResult = await this.testPage(pageUrl, config, sessionSummary.sessionId);
-        pageResults.push(pageResult);
-        
-        sessionSummary.testsRun += pageResult.tests.length;
-        sessionSummary.testsSucceeded += pageResult.tests.filter(t => t.status === 'success').length;
-        sessionSummary.testsFailed += pageResult.tests.filter(t => t.status === 'failed').length;
-        
-        this.progressTracker.updateCompletedPages(i + 1);
-      }
+      // Analyze test configuration and create execution strategy
+      const executionStrategy = TestPhaseManager.organizeTestsIntoPhases(config);
+      
+      console.log(chalk.blue(`📋 Execution strategy: ${executionStrategy.phases.length} phases`));
+      console.log(chalk.gray(`   Estimated duration: ${executionStrategy.totalEstimatedDuration}s`));
 
+      // Execute tests in three phases
+      await this.executePhase1(config, executionStrategy);
+      await this.executePhase2(config, executionStrategy);
+      await this.executePhase3(config, executionStrategy);
+
+      // Generate final session summary
       sessionSummary.endTime = new Date();
+      sessionSummary.totalPages = this.dataManager.getUrls().length;
+      
+      const allResults = this.aggregateResults();
+      sessionSummary.testsRun = allResults.length;
+      sessionSummary.testsSucceeded = allResults.filter(r => r.status === 'success').length;
+      sessionSummary.testsFailed = allResults.filter(r => r.status === 'failed').length;
       
       console.log(chalk.blue('\n📊 Generating session summary...'));
-      await this.sessionManager.generateSessionSummary(sessionSummary, pageResults);
+      await this.generateFinalSessionSummary(sessionSummary);
+      
+      // Display files created summary
+      this.displayFilesCreated(sessionSummary.sessionId);
       
       this.displayCompletionSummary(sessionSummary);
 
@@ -100,103 +110,336 @@ export class TestOrchestrator {
     });
   }
 
-  private async discoverPages(config: TestConfig): Promise<string[]> {
-    if (config.crawlSite) {
-      return await this.siteCrawler.crawlSite(config.url);
-    } else {
-      return [config.url];
+  /**
+   * Phase 1: Data Discovery & Collection
+   * - Site crawling (single execution)
+   * - Content scraping for all pages
+   * - Sitemap generation
+   */
+  private async executePhase1(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
+    const phase1Plan = strategy.phases.find(p => p.phase === 1);
+    if (!phase1Plan) return;
+
+    console.log(chalk.blue('\n🔍 Phase 1: Data Discovery & Collection'));
+    
+    // Step 1: Site crawling (if needed)
+    let urls: string[] = [config.url];
+    if (config.crawlSite || phase1Plan.sessionTests.includes('site-crawling')) {
+      console.log(chalk.gray('   🕷️  Discovering pages...'));
+      urls = await this.siteCrawler.crawlSite(config.url);
+      console.log(chalk.green(`   ✅ Found ${urls.length} pages`));
     }
-  }
+    
+    this.dataManager!.setUrls(urls);
 
-  private calculateTotalTests(config: TestConfig, pageCount: number): number {
-    return config.selectedTests.length * pageCount * config.viewports.length;
-  }
+    // Step 2: Execute session-level tests in parallel
+    if (phase1Plan.sessionTests.length > 0) {
+      console.log(chalk.gray(`   🎯 Running ${phase1Plan.sessionTests.length} session-level tests...`));
+      
+      const sessionTasks = phase1Plan.sessionTests
+        .filter(testId => testId !== 'site-crawling') // Already done
+        .map(testId => ({
+          id: testId,
+          name: this.getTestName(testId),
+          execute: async () => {
+            switch (testId) {
+              case 'sitemap':
+                return await this.sitemapTester.generateSitemapFromUrls(urls, config.url, this.dataManager!.sessionId);
+              default:
+                throw new Error(`Unknown session test: ${testId}`);
+            }
+          }
+        }));
 
-  private async testPage(pageUrl: string, config: TestConfig, sessionId: string): Promise<PageResult> {
-    const page = await this.browser!.newPage();
-    const pageResult: PageResult = {
-      url: pageUrl,
-      pageName: this.sessionManager.getPageName(pageUrl),
-      tests: [],
-      summary: ''
-    };
-
-    try {
-      console.log(chalk.gray(`  Navigating to ${pageUrl}...`));
-      await page.goto(pageUrl, { waitUntil: 'networkidle' });
-
-      for (const test of config.selectedTests) {
-        if (!test.enabled) continue;
-
-        this.progressTracker.updateCurrentTest(`${test.name} on ${pageResult.pageName}`);
+      if (sessionTasks.length > 0) {
+        const sessionResults = await this.parallelExecutor!.executeTasks(sessionTasks, {
+          description: 'session tests',
+          maxConcurrency: 2
+        });
         
-        const testResults = await this.executeTest(test.id, page, pageUrl, config, sessionId);
-        pageResult.tests.push(...testResults);
-        
-        this.progressTracker.incrementCompletedTests(testResults.length);
+        // Collect results
+        sessionResults.successful.forEach(result => {
+          this.allTestResults.push(result.result as TestResult);
+        });
       }
-
-      pageResult.summary = this.generatePageSummary(pageResult);
-      await this.sessionManager.savePageSummary(sessionId, pageResult);
-
-    } catch (error) {
-      console.error(chalk.red(`  ❌ Error testing page ${pageUrl}:`), error);
-      pageResult.tests.push({
-        testType: 'page-load',
-        status: 'failed',
-        startTime: new Date(),
-        endTime: new Date(),
-        error: error instanceof Error ? error.message : String(error)
-      });
-    } finally {
-      await page.close();
     }
 
-    return pageResult;
-  }
-
-  private async executeTest(
-    testType: string, 
-    page: Page, 
-    pageUrl: string, 
-    config: TestConfig, 
-    sessionId: string
-  ): Promise<TestResult[]> {
-    const results: TestResult[] = [];
-
-    switch (testType) {
-      case 'screenshots':
-        for (const viewport of config.viewports) {
-          const result = await this.screenshotTester.captureScreenshot(
-            page, pageUrl, viewport, sessionId
-          );
-          results.push(result);
+    // Step 3: Content scraping for all pages in parallel
+    if (phase1Plan.pageTests.includes('content-scraping')) {
+      console.log(chalk.gray(`   📄 Scraping content from ${urls.length} pages...`));
+      
+      const scrapingTasks = urls.map(url => ({
+        id: `content-${url}`,
+        name: `Content scraping (${new URL(url).pathname})`,
+        execute: async () => {
+          const page = await this.browser!.newPage();
+          try {
+            await page.goto(url, { waitUntil: 'networkidle' });
+            const result = await this.contentScraper.scrapePageContentToStore(page, url, this.dataManager!);
+            return result;
+          } finally {
+            await page.close();
+          }
         }
-        break;
+      }));
 
-      case 'seo':
-        const seoResult = await this.seoTester.runSEOScan(page, pageUrl, sessionId);
-        results.push(seoResult);
-        break;
-
-      case 'accessibility':
-        const a11yResult = await this.accessibilityTester.runAccessibilityScan(page, pageUrl, sessionId);
-        results.push(a11yResult);
-        break;
-
-      default:
-        console.warn(chalk.yellow(`⚠️  Unknown test type: ${testType}`));
+      const scrapingResults = await this.parallelExecutor!.executeTasks(scrapingTasks, {
+        description: 'content scraping',
+        maxConcurrency: phase1Plan.maxConcurrency
+      });
+      
+      // Collect content scraping results
+      scrapingResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
+      });
     }
 
-    return results;
+    this.dataManager!.markPhaseComplete(1);
+    console.log(chalk.green('   ✅ Phase 1 completed\n'));
   }
 
-  private generatePageSummary(pageResult: PageResult): string {
-    const successCount = pageResult.tests.filter(t => t.status === 'success').length;
-    const failCount = pageResult.tests.filter(t => t.status === 'failed').length;
-    const totalTests = pageResult.tests.length;
+  /**
+   * Phase 2: Page Analysis & Testing
+   * - Screenshots across all viewports
+   * - SEO scans
+   * - Accessibility testing
+   */
+  private async executePhase2(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
+    const phase2Plan = strategy.phases.find(p => p.phase === 2);
+    if (!phase2Plan || phase2Plan.pageTests.length === 0) return;
 
-    return `Page: ${pageResult.url}\nTests completed: ${totalTests}\nSuccessful: ${successCount}\nFailed: ${failCount}`;
+    console.log(chalk.blue('\n🔬 Phase 2: Page Analysis & Testing'));
+    
+    const urls = this.dataManager!.getUrls();
+    const pageTests = phase2Plan.pageTests;
+    
+    console.log(chalk.gray(`   🎯 Running ${pageTests.length} test types on ${urls.length} pages...`));
+
+    // Create all page test tasks
+    const allPageTasks: any[] = [];
+    
+    for (const url of urls) {
+      for (const testType of pageTests) {
+        if (testType === 'screenshots') {
+          // Create separate tasks for each viewport
+          for (const viewport of config.viewports) {
+            allPageTasks.push({
+              id: `${testType}-${viewport.name}-${url}`,
+              name: `Screenshot ${viewport.name} (${new URL(url).pathname})`,
+              execute: async () => {
+                const page = await this.browser!.newPage();
+                try {
+                  await page.goto(url, { waitUntil: 'networkidle' });
+                  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+                  return await this.screenshotTester.captureScreenshot(page, url, viewport, this.dataManager!.sessionId);
+                } finally {
+                  await page.close();
+                }
+              }
+            });
+          }
+        } else {
+          allPageTasks.push({
+            id: `${testType}-${url}`,
+            name: `${this.getTestName(testType)} (${new URL(url).pathname})`,
+            execute: async () => {
+              const page = await this.browser!.newPage();
+              try {
+                await page.goto(url, { waitUntil: 'networkidle' });
+                
+                switch (testType) {
+                  case 'seo':
+                    return await this.seoTester.runSEOScan(page, url, this.dataManager!.sessionId);
+                  case 'accessibility':
+                    return await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager!.sessionId);
+                  default:
+                    throw new Error(`Unknown page test: ${testType}`);
+                }
+              } finally {
+                await page.close();
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Execute all page tests in parallel
+    const phase2Results = await this.parallelExecutor!.executeTasks(allPageTasks, {
+      description: 'page analysis tests',
+      maxConcurrency: phase2Plan.maxConcurrency,
+      onProgress: (completed, total) => {
+        console.log(chalk.gray(`      Progress: ${completed}/${total} tests completed`));
+      }
+    });
+    
+    // Collect Phase 2 results
+    phase2Results.successful.forEach(result => {
+      this.allTestResults.push(result.result as TestResult);
+    });
+
+    this.dataManager!.markPhaseComplete(2);
+    console.log(chalk.green('   ✅ Phase 2 completed\n'));
+  }
+
+  /**
+   * Phase 3: Report Generation & Finalization
+   * - Site summary using real scraped content
+   * - Session reports and statistics
+   */
+  private async executePhase3(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
+    const phase3Plan = strategy.phases.find(p => p.phase === 3);
+    if (!phase3Plan) return;
+
+    console.log(chalk.blue('\n📊 Phase 3: Report Generation & Finalization'));
+
+    // Execute session-level tests (like site summary)
+    if (phase3Plan.sessionTests.length > 0) {
+      console.log(chalk.gray(`   📋 Generating ${phase3Plan.sessionTests.length} reports...`));
+      
+      const reportTasks = phase3Plan.sessionTests.map(testId => ({
+        id: testId,
+        name: this.getTestName(testId),
+        execute: async () => {
+          switch (testId) {
+            case 'site-summary':
+              return await this.siteSummaryTester.generateSiteSummaryFromStore(this.dataManager!);
+            default:
+              throw new Error(`Unknown report test: ${testId}`);
+          }
+        }
+      }));
+
+      const reportResults = await this.parallelExecutor!.executeTasks(reportTasks, {
+        description: 'reports',
+        maxConcurrency: 2
+      });
+      
+      // Collect Phase 3 results
+      reportResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
+      });
+    }
+
+    this.dataManager!.markPhaseComplete(3);
+    console.log(chalk.green('   ✅ Phase 3 completed\n'));
+  }
+
+  /**
+   * Utility methods
+   */
+  private getTestName(testId: string): string {
+    const testNames: Record<string, string> = {
+      'site-crawling': 'Site Crawling',
+      'sitemap': 'Sitemap Generation',
+      'content-scraping': 'Content Scraping',
+      'screenshots': 'Screenshots',
+      'seo': 'SEO Scan',
+      'accessibility': 'Accessibility Scan',
+      'site-summary': 'Site Summary'
+    };
+    
+    return testNames[testId] || testId;
+  }
+
+  private aggregateResults(): TestResult[] {
+    return this.allTestResults;
+  }
+
+  private async generateFinalSessionSummary(sessionSummary: SessionSummary): Promise<void> {
+    // Generate page results from stored data and organize by URL
+    const pageResults: PageResult[] = [];
+    const urls = this.dataManager!.getUrls();
+    
+    for (const url of urls) {
+      const metrics = this.dataManager!.getPageMetrics(url);
+      const content = this.dataManager!.getScrapedContent(url);
+      
+      // Find tests that ran for this specific page
+      const pageTests = this.allTestResults.filter(result => {
+        // Check if this test result is for this page
+        return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
+               result.testType === 'content-scraping'; // Content scraping runs per page
+      });
+      
+      const pageResult: PageResult = {
+        url,
+        pageName: this.sessionManager.getPageName(url),
+        tests: pageTests,
+        summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${pageTests.length}`
+      };
+      
+      pageResults.push(pageResult);
+    }
+
+    // Add session-level tests to the first page result (or create a separate section)
+    if (pageResults.length > 0) {
+      const sessionTests = this.allTestResults.filter(result => 
+        result.testType === 'sitemap' || result.testType === 'site-summary'
+      );
+      
+      if (sessionTests.length > 0) {
+        // Add session tests to first page or create a summary entry
+        pageResults[0].tests.push(...sessionTests);
+      }
+    }
+
+    await this.sessionManager.generateSessionSummary(sessionSummary, pageResults);
+  }
+
+  private displayFilesCreated(sessionId: string): void {
+    console.log(chalk.blue('\n📁 Files Created:'));
+    console.log(chalk.cyan('═'.repeat(50)));
+    
+    // Show content scraping results
+    const contentScrapingResults = this.allTestResults.filter(r => r.testType === 'content-scraping');
+    if (contentScrapingResults.length > 0) {
+      console.log(chalk.white(`📄 Content Scraping: ${contentScrapingResults.length} markdown files`));
+      contentScrapingResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+    
+    // Show sitemap results
+    const sitemapResults = this.allTestResults.filter(r => r.testType === 'sitemap');
+    if (sitemapResults.length > 0) {
+      console.log(chalk.white(`🗺️  Sitemap: ${sitemapResults.length} file(s)`));
+      sitemapResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+    
+    // Show site summary results
+    const summaryResults = this.allTestResults.filter(r => r.testType === 'site-summary');
+    if (summaryResults.length > 0) {
+      console.log(chalk.white(`📊 Site Summary: ${summaryResults.length} file(s)`));
+      summaryResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+
+    // Show screenshot results
+    const screenshotResults = this.allTestResults.filter(r => r.testType.includes('screenshots'));
+    if (screenshotResults.length > 0) {
+      console.log(chalk.white(`📸 Screenshots: ${screenshotResults.length} file(s)`));
+    }
+
+    // Show other test results
+    const otherResults = this.allTestResults.filter(r => 
+      !['content-scraping', 'sitemap', 'site-summary'].includes(r.testType) &&
+      !r.testType.includes('screenshots')
+    );
+    if (otherResults.length > 0) {
+      console.log(chalk.white(`🧪 Other Tests: ${otherResults.length} file(s)`));
+    }
+    
+    console.log(chalk.cyan('═'.repeat(50)));
   }
 
   private displayCompletionSummary(summary: SessionSummary): void {

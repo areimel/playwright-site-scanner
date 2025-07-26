@@ -22,6 +22,24 @@ const AVAILABLE_TESTS: TestType[] = [
     name: 'Accessibility Scan',
     description: 'Check for accessibility issues and WCAG compliance',
     enabled: false
+  },
+  {
+    id: 'sitemap',
+    name: 'Sitemap Generation',
+    description: 'Generate XML sitemap for search engine submission',
+    enabled: false
+  },
+  {
+    id: 'content-scraping',
+    name: 'Content Scraping',
+    description: 'Extract page content and images to markdown files',
+    enabled: false
+  },
+  {
+    id: 'site-summary',
+    name: 'Site Summary',
+    description: 'Generate comprehensive site overview report',
+    enabled: false
   }
 ];
 

@@ -1,6 +1,13 @@
 import chalk from 'chalk';
 import { ProgressState } from '../types/index.js';
 
+export interface PhaseProgress {
+  currentPhase: number;
+  totalPhases: number;
+  phaseName: string;
+  phaseProgress: number;
+}
+
 export class ProgressTracker {
   private state: ProgressState = {
     currentTest: '',
@@ -9,6 +16,13 @@ export class ProgressTracker {
     currentPage: '',
     completedPages: 0,
     totalPages: 0
+  };
+
+  private phaseState: PhaseProgress = {
+    currentPhase: 0,
+    totalPhases: 3,
+    phaseName: '',
+    phaseProgress: 0
   };
 
   initialize(initialState: ProgressState): void {
@@ -34,6 +48,35 @@ export class ProgressTracker {
   incrementCompletedTests(count: number = 1): void {
     this.state.completedTests += count;
     this.displayProgress();
+  }
+
+  // Phase-based progress tracking methods
+  startPhase(phase: number, phaseName: string): void {
+    this.phaseState.currentPhase = phase;
+    this.phaseState.phaseName = phaseName;
+    this.phaseState.phaseProgress = 0;
+    
+    console.log(chalk.blue(`\n📋 Phase ${phase}/3: ${phaseName}`));
+    console.log(chalk.gray('━'.repeat(50)));
+  }
+
+  updatePhaseProgress(progress: number): void {
+    this.phaseState.phaseProgress = Math.min(100, Math.max(0, progress));
+    this.displayPhaseProgress();
+  }
+
+  completePhase(): void {
+    this.phaseState.phaseProgress = 100;
+    console.log(chalk.green(`✅ Phase ${this.phaseState.currentPhase} completed: ${this.phaseState.phaseName}\n`));
+  }
+
+  private displayPhaseProgress(): void {
+    const overallProgress = ((this.phaseState.currentPhase - 1) * 100 + this.phaseState.phaseProgress) / this.phaseState.totalPhases;
+    const phaseBar = this.createProgressBar(this.phaseState.phaseProgress, 40);
+    const overallBar = this.createProgressBar(overallProgress, 40);
+    
+    console.log(chalk.gray(`   Phase: ${phaseBar} ${this.phaseState.phaseProgress.toFixed(0)}%`));
+    console.log(chalk.cyan(`   Overall: ${overallBar} ${overallProgress.toFixed(0)}%`));
   }
 
   private displayProgress(): void {

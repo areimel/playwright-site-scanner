@@ -1,0 +1,9 @@
+{
+	"id": "XtXvkFGyPzmIqBi",
+	"json": "{\"id\":\"XtXvkFGyPzmIqBi\",\"url\":\"https://advancedresearch.dev/contact\",\"loadedUrl\":\"https://advancedresearch.dev/contact/\",\"uniqueKey\":\"https://advancedresearch.dev/contact\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T22:25:23.301Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://advancedresearch.dev/contact",
+	"url": "https://advancedresearch.dev/contact"
+}
