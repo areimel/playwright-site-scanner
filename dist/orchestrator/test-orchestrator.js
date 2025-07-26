@@ -31,6 +31,8 @@ class TestOrchestrator {
     sitemapTester;
     contentScraper;
     siteSummaryTester;
+    // Track all test results for session summary
+    allTestResults = [];
     constructor() {
         this.sessionManager = new session_manager_js_1.SessionManager();
         this.progressTracker = new progress_tracker_js_1.ProgressTracker();
@@ -78,6 +80,8 @@ class TestOrchestrator {
             sessionSummary.testsFailed = allResults.filter(r => r.status === 'failed').length;
             console.log(chalk_1.default.blue('\n📊 Generating session summary...'));
             await this.generateFinalSessionSummary(sessionSummary);
+            // Display files created summary
+            this.displayFilesCreated(sessionSummary.sessionId);
             this.displayCompletionSummary(sessionSummary);
         }
         catch (error) {
@@ -132,9 +136,13 @@ class TestOrchestrator {
                 }
             }));
             if (sessionTasks.length > 0) {
-                await this.parallelExecutor.executeTasks(sessionTasks, {
+                const sessionResults = await this.parallelExecutor.executeTasks(sessionTasks, {
                     description: 'session tests',
                     maxConcurrency: 2
+                });
+                // Collect results
+                sessionResults.successful.forEach(result => {
+                    this.allTestResults.push(result.result);
                 });
             }
         }
@@ -156,9 +164,13 @@ class TestOrchestrator {
                     }
                 }
             }));
-            await this.parallelExecutor.executeTasks(scrapingTasks, {
+            const scrapingResults = await this.parallelExecutor.executeTasks(scrapingTasks, {
                 description: 'content scraping',
                 maxConcurrency: phase1Plan.maxConcurrency
+            });
+            // Collect content scraping results
+            scrapingResults.successful.forEach(result => {
+                this.allTestResults.push(result.result);
             });
         }
         this.dataManager.markPhaseComplete(1);
@@ -228,12 +240,16 @@ class TestOrchestrator {
             }
         }
         // Execute all page tests in parallel
-        await this.parallelExecutor.executeTasks(allPageTasks, {
+        const phase2Results = await this.parallelExecutor.executeTasks(allPageTasks, {
             description: 'page analysis tests',
             maxConcurrency: phase2Plan.maxConcurrency,
             onProgress: (completed, total) => {
                 console.log(chalk_1.default.gray(`      Progress: ${completed}/${total} tests completed`));
             }
+        });
+        // Collect Phase 2 results
+        phase2Results.successful.forEach(result => {
+            this.allTestResults.push(result.result);
         });
         this.dataManager.markPhaseComplete(2);
         console.log(chalk_1.default.green('   ✅ Phase 2 completed\n'));
@@ -263,9 +279,13 @@ class TestOrchestrator {
                     }
                 }
             }));
-            await this.parallelExecutor.executeTasks(reportTasks, {
+            const reportResults = await this.parallelExecutor.executeTasks(reportTasks, {
                 description: 'reports',
                 maxConcurrency: 2
+            });
+            // Collect Phase 3 results
+            reportResults.successful.forEach(result => {
+                this.allTestResults.push(result.result);
             });
         }
         this.dataManager.markPhaseComplete(3);
@@ -287,26 +307,84 @@ class TestOrchestrator {
         return testNames[testId] || testId;
     }
     aggregateResults() {
-        // This would collect all test results from the data manager
-        // For now, return empty array as results are stored in the data manager
-        return [];
+        return this.allTestResults;
     }
     async generateFinalSessionSummary(sessionSummary) {
-        // Generate page results from stored data
+        // Generate page results from stored data and organize by URL
         const pageResults = [];
         const urls = this.dataManager.getUrls();
         for (const url of urls) {
             const metrics = this.dataManager.getPageMetrics(url);
             const content = this.dataManager.getScrapedContent(url);
+            // Find tests that ran for this specific page
+            const pageTests = this.allTestResults.filter(result => {
+                // Check if this test result is for this page
+                return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
+                    result.testType === 'content-scraping'; // Content scraping runs per page
+            });
             const pageResult = {
                 url,
                 pageName: this.sessionManager.getPageName(url),
-                tests: [], // Tests are tracked separately in the new system
-                summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}`
+                tests: pageTests,
+                summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${pageTests.length}`
             };
             pageResults.push(pageResult);
         }
+        // Add session-level tests to the first page result (or create a separate section)
+        if (pageResults.length > 0) {
+            const sessionTests = this.allTestResults.filter(result => result.testType === 'sitemap' || result.testType === 'site-summary');
+            if (sessionTests.length > 0) {
+                // Add session tests to first page or create a summary entry
+                pageResults[0].tests.push(...sessionTests);
+            }
+        }
         await this.sessionManager.generateSessionSummary(sessionSummary, pageResults);
+    }
+    displayFilesCreated(sessionId) {
+        console.log(chalk_1.default.blue('\n📁 Files Created:'));
+        console.log(chalk_1.default.cyan('═'.repeat(50)));
+        // Show content scraping results
+        const contentScrapingResults = this.allTestResults.filter(r => r.testType === 'content-scraping');
+        if (contentScrapingResults.length > 0) {
+            console.log(chalk_1.default.white(`📄 Content Scraping: ${contentScrapingResults.length} markdown files`));
+            contentScrapingResults.forEach(result => {
+                if (result.outputPath && result.status === 'success') {
+                    console.log(chalk_1.default.gray(`   - ${result.outputPath}`));
+                }
+            });
+        }
+        // Show sitemap results
+        const sitemapResults = this.allTestResults.filter(r => r.testType === 'sitemap');
+        if (sitemapResults.length > 0) {
+            console.log(chalk_1.default.white(`🗺️  Sitemap: ${sitemapResults.length} file(s)`));
+            sitemapResults.forEach(result => {
+                if (result.outputPath && result.status === 'success') {
+                    console.log(chalk_1.default.gray(`   - ${result.outputPath}`));
+                }
+            });
+        }
+        // Show site summary results
+        const summaryResults = this.allTestResults.filter(r => r.testType === 'site-summary');
+        if (summaryResults.length > 0) {
+            console.log(chalk_1.default.white(`📊 Site Summary: ${summaryResults.length} file(s)`));
+            summaryResults.forEach(result => {
+                if (result.outputPath && result.status === 'success') {
+                    console.log(chalk_1.default.gray(`   - ${result.outputPath}`));
+                }
+            });
+        }
+        // Show screenshot results
+        const screenshotResults = this.allTestResults.filter(r => r.testType.includes('screenshots'));
+        if (screenshotResults.length > 0) {
+            console.log(chalk_1.default.white(`📸 Screenshots: ${screenshotResults.length} file(s)`));
+        }
+        // Show other test results
+        const otherResults = this.allTestResults.filter(r => !['content-scraping', 'sitemap', 'site-summary'].includes(r.testType) &&
+            !r.testType.includes('screenshots'));
+        if (otherResults.length > 0) {
+            console.log(chalk_1.default.white(`🧪 Other Tests: ${otherResults.length} file(s)`));
+        }
+        console.log(chalk_1.default.cyan('═'.repeat(50)));
     }
     displayCompletionSummary(summary) {
         const duration = summary.endTime

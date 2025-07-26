@@ -28,6 +28,9 @@ export class TestOrchestrator {
   private contentScraper: ContentScraper;
   private siteSummaryTester: SiteSummaryTester;
 
+  // Track all test results for session summary
+  private allTestResults: TestResult[] = [];
+
   constructor() {
     this.sessionManager = new SessionManager();
     this.progressTracker = new ProgressTracker();
@@ -85,6 +88,9 @@ export class TestOrchestrator {
       
       console.log(chalk.blue('\n📊 Generating session summary...'));
       await this.generateFinalSessionSummary(sessionSummary);
+      
+      // Display files created summary
+      this.displayFilesCreated(sessionSummary.sessionId);
       
       this.displayCompletionSummary(sessionSummary);
 
@@ -146,9 +152,14 @@ export class TestOrchestrator {
         }));
 
       if (sessionTasks.length > 0) {
-        await this.parallelExecutor!.executeTasks(sessionTasks, {
+        const sessionResults = await this.parallelExecutor!.executeTasks(sessionTasks, {
           description: 'session tests',
           maxConcurrency: 2
+        });
+        
+        // Collect results
+        sessionResults.successful.forEach(result => {
+          this.allTestResults.push(result.result as TestResult);
         });
       }
     }
@@ -172,9 +183,14 @@ export class TestOrchestrator {
         }
       }));
 
-      await this.parallelExecutor!.executeTasks(scrapingTasks, {
+      const scrapingResults = await this.parallelExecutor!.executeTasks(scrapingTasks, {
         description: 'content scraping',
         maxConcurrency: phase1Plan.maxConcurrency
+      });
+      
+      // Collect content scraping results
+      scrapingResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
       });
     }
 
@@ -249,12 +265,17 @@ export class TestOrchestrator {
     }
 
     // Execute all page tests in parallel
-    await this.parallelExecutor!.executeTasks(allPageTasks, {
+    const phase2Results = await this.parallelExecutor!.executeTasks(allPageTasks, {
       description: 'page analysis tests',
       maxConcurrency: phase2Plan.maxConcurrency,
       onProgress: (completed, total) => {
         console.log(chalk.gray(`      Progress: ${completed}/${total} tests completed`));
       }
+    });
+    
+    // Collect Phase 2 results
+    phase2Results.successful.forEach(result => {
+      this.allTestResults.push(result.result as TestResult);
     });
 
     this.dataManager!.markPhaseComplete(2);
@@ -289,9 +310,14 @@ export class TestOrchestrator {
         }
       }));
 
-      await this.parallelExecutor!.executeTasks(reportTasks, {
+      const reportResults = await this.parallelExecutor!.executeTasks(reportTasks, {
         description: 'reports',
         maxConcurrency: 2
+      });
+      
+      // Collect Phase 3 results
+      reportResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
       });
     }
 
@@ -317,13 +343,11 @@ export class TestOrchestrator {
   }
 
   private aggregateResults(): TestResult[] {
-    // This would collect all test results from the data manager
-    // For now, return empty array as results are stored in the data manager
-    return [];
+    return this.allTestResults;
   }
 
   private async generateFinalSessionSummary(sessionSummary: SessionSummary): Promise<void> {
-    // Generate page results from stored data
+    // Generate page results from stored data and organize by URL
     const pageResults: PageResult[] = [];
     const urls = this.dataManager!.getUrls();
     
@@ -331,17 +355,91 @@ export class TestOrchestrator {
       const metrics = this.dataManager!.getPageMetrics(url);
       const content = this.dataManager!.getScrapedContent(url);
       
+      // Find tests that ran for this specific page
+      const pageTests = this.allTestResults.filter(result => {
+        // Check if this test result is for this page
+        return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
+               result.testType === 'content-scraping'; // Content scraping runs per page
+      });
+      
       const pageResult: PageResult = {
         url,
         pageName: this.sessionManager.getPageName(url),
-        tests: [], // Tests are tracked separately in the new system
-        summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}`
+        tests: pageTests,
+        summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${pageTests.length}`
       };
       
       pageResults.push(pageResult);
     }
 
+    // Add session-level tests to the first page result (or create a separate section)
+    if (pageResults.length > 0) {
+      const sessionTests = this.allTestResults.filter(result => 
+        result.testType === 'sitemap' || result.testType === 'site-summary'
+      );
+      
+      if (sessionTests.length > 0) {
+        // Add session tests to first page or create a summary entry
+        pageResults[0].tests.push(...sessionTests);
+      }
+    }
+
     await this.sessionManager.generateSessionSummary(sessionSummary, pageResults);
+  }
+
+  private displayFilesCreated(sessionId: string): void {
+    console.log(chalk.blue('\n📁 Files Created:'));
+    console.log(chalk.cyan('═'.repeat(50)));
+    
+    // Show content scraping results
+    const contentScrapingResults = this.allTestResults.filter(r => r.testType === 'content-scraping');
+    if (contentScrapingResults.length > 0) {
+      console.log(chalk.white(`📄 Content Scraping: ${contentScrapingResults.length} markdown files`));
+      contentScrapingResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+    
+    // Show sitemap results
+    const sitemapResults = this.allTestResults.filter(r => r.testType === 'sitemap');
+    if (sitemapResults.length > 0) {
+      console.log(chalk.white(`🗺️  Sitemap: ${sitemapResults.length} file(s)`));
+      sitemapResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+    
+    // Show site summary results
+    const summaryResults = this.allTestResults.filter(r => r.testType === 'site-summary');
+    if (summaryResults.length > 0) {
+      console.log(chalk.white(`📊 Site Summary: ${summaryResults.length} file(s)`));
+      summaryResults.forEach(result => {
+        if (result.outputPath && result.status === 'success') {
+          console.log(chalk.gray(`   - ${result.outputPath}`));
+        }
+      });
+    }
+
+    // Show screenshot results
+    const screenshotResults = this.allTestResults.filter(r => r.testType.includes('screenshots'));
+    if (screenshotResults.length > 0) {
+      console.log(chalk.white(`📸 Screenshots: ${screenshotResults.length} file(s)`));
+    }
+
+    // Show other test results
+    const otherResults = this.allTestResults.filter(r => 
+      !['content-scraping', 'sitemap', 'site-summary'].includes(r.testType) &&
+      !r.testType.includes('screenshots')
+    );
+    if (otherResults.length > 0) {
+      console.log(chalk.white(`🧪 Other Tests: ${otherResults.length} file(s)`));
+    }
+    
+    console.log(chalk.cyan('═'.repeat(50)));
   }
 
   private displayCompletionSummary(summary: SessionSummary): void {

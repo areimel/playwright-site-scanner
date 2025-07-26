@@ -12,6 +12,7 @@ export declare class TestOrchestrator {
     private sitemapTester;
     private contentScraper;
     private siteSummaryTester;
+    private allTestResults;
     constructor();
     runTests(config: TestConfig): Promise<void>;
     private initializeBrowser;
@@ -41,6 +42,7 @@ export declare class TestOrchestrator {
     private getTestName;
     private aggregateResults;
     private generateFinalSessionSummary;
+    private displayFilesCreated;
     private displayCompletionSummary;
     private cleanup;
 }

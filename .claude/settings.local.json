@@ -9,7 +9,8 @@
       "Bash(node dist/cli.js --help)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:crawlee.dev)"
+      "WebFetch(domain:crawlee.dev)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

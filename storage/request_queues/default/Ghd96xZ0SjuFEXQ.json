@@ -1,6 +1,6 @@
 {
 	"id": "Ghd96xZ0SjuFEXQ",
-	"json": "{\"id\":\"Ghd96xZ0SjuFEXQ\",\"url\":\"https://advancedresearch.dev/services/web-development\",\"loadedUrl\":\"https://advancedresearch.dev/services/web-development\",\"uniqueKey\":\"https://advancedresearch.dev/services/web-development\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T21:26:43.774Z\"}",
+	"json": "{\"id\":\"Ghd96xZ0SjuFEXQ\",\"url\":\"https://advancedresearch.dev/services/web-development\",\"loadedUrl\":\"https://advancedresearch.dev/services/web-development\",\"uniqueKey\":\"https://advancedresearch.dev/services/web-development\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T22:25:15.840Z\"}",
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,

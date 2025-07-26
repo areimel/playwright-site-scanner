@@ -90,10 +90,29 @@ export class ContentScraper {
       // Save content to the data manager (which handles images and metrics)
       dataManager.setScrapedContent(pageUrl, scrapedContent);
 
+      // Also generate and save markdown files for user visibility
+      const pageName = this.sessionManager.getPageName(pageUrl);
+      
+      // Create images directory for this session if it doesn't exist
+      await this.createImagesDirectory(dataManager.sessionId);
+
+      // Download and save images locally
+      console.log(chalk.gray(`        🖼️  Processing ${scrapedContent.images.length} images...`));
+      const processedImages = await this.processImages(page, scrapedContent.images, dataManager.sessionId, pageName);
+      scrapedContent.images = processedImages;
+
+      // Generate markdown content
+      const markdownContent = this.generateMarkdown(scrapedContent, pageUrl);
+
+      // Save markdown file
+      const outputPath = await this.saveMarkdownContent(dataManager.sessionId, pageName, markdownContent);
+
       testResult.status = 'success';
+      testResult.outputPath = outputPath;
       testResult.endTime = new Date();
       
       console.log(chalk.green(`      ✅ Content scraped: ${scrapedContent.headings.length} headings, ${scrapedContent.paragraphs.length} paragraphs, ${scrapedContent.images.length} images`));
+      console.log(chalk.green(`        📄 Markdown saved: ${outputPath}`));
 
     } catch (error) {
       testResult.status = 'failed';

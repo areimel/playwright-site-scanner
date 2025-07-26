@@ -1,6 +1,6 @@
 {
 	"id": "dAdkITcSTxG7nJh",
-	"json": "{\"id\":\"dAdkITcSTxG7nJh\",\"url\":\"https://advancedresearch.dev/404\",\"loadedUrl\":\"https://advancedresearch.dev/404\",\"uniqueKey\":\"https://advancedresearch.dev/404\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T21:26:43.833Z\"}",
+	"json": "{\"id\":\"dAdkITcSTxG7nJh\",\"url\":\"https://advancedresearch.dev/404\",\"loadedUrl\":\"https://advancedresearch.dev/404\",\"uniqueKey\":\"https://advancedresearch.dev/404\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T22:25:17.482Z\"}",
 	"method": "GET",
 	"orderNo": null,
 	"retryCount": 0,
