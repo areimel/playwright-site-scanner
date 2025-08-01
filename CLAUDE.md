@@ -50,14 +50,42 @@ This is a TypeScript CLI tool for automated website testing using Playwright. Th
 - `screenshot-tester.ts` - Multi-viewport screenshot capture
 - `seo-tester.ts` - SEO element analysis (meta tags, headings, links, etc.)
 - `accessibility-tester.ts` - WCAG compliance testing with axe-core
+- `content-scraper.ts` - Extracts page content and images to markdown files
+- `sitemap-tester.ts` - Generates XML sitemaps for search engine submission
+- `site-summary-tester.ts` - Creates comprehensive site overview reports
 
 **Utilities** (`src/utils/`)
 - `session-manager.ts` - File organization and report generation
 - `progress-tracker.ts` - Real-time progress display during execution
 - `validation.ts` - URL validation for user input
 - `ascii-art.ts` - CLI branding and welcome screens
+- `parallel-executor.ts` - Task parallelization with concurrency control
+- `session-data-store.ts` - Data persistence and retrieval for test sessions
 
 ### Key Implementation Details
+
+**Three-Phase Execution Strategy** (`src/types/test-phases.ts`)
+The orchestrator organizes tests into three sequential phases for optimal performance:
+
+1. **Phase 1: Data Discovery & Collection**
+   - Site crawling (discovers all pages)
+   - Content scraping for all pages
+   - Sitemap generation from discovered URLs
+
+2. **Phase 2: Page Analysis & Testing**
+   - Screenshots across all viewports (desktop, tablet, mobile)
+   - SEO scans (meta tags, headings, links, structured data)
+   - Accessibility testing with axe-core
+
+3. **Phase 3: Report Generation & Finalization**
+   - Site summary using scraped content
+   - Session reports and statistics
+
+**Parallel Execution System**
+- Uses `ParallelExecutor` utility for concurrent task execution
+- Configurable concurrency limits per phase (Phase 1: 3, Phase 2: 5, Phase 3: 2)
+- Progress tracking with real-time updates
+- Error handling with graceful degradation
 
 **Session Management**
 - Results organized in timestamped directories: `playwright-site-scanner-sessions/MM-DD-YYYY_HH-MM/`
@@ -78,7 +106,7 @@ This is a TypeScript CLI tool for automated website testing using Playwright. Th
 
 **Test Execution Flow**
 1. Browser initialization
-2. Page discovery (single URL or site crawl)
+2. Page discovery (single URL or site crawl)  
 3. Session directory creation
 4. Per-page testing loop with progress tracking
 5. Result aggregation and summary generation
