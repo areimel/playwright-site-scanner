@@ -8,6 +8,7 @@ const inquirer_1 = __importDefault(require("inquirer"));
 const chalk_1 = __importDefault(require("chalk"));
 const validation_js_1 = require("../utils/validation.js");
 const test_orchestrator_js_1 = require("../orchestrator/test-orchestrator.js");
+const reporter_manager_js_1 = require("../utils/reporter-manager.js");
 const AVAILABLE_TESTS = [
     {
         id: 'screenshots',
@@ -99,13 +100,65 @@ async function runWalkthrough() {
     ]);
     const selectedTests = AVAILABLE_TESTS.filter(test => selectedTestIds.includes(test.id)).map(test => ({ ...test, enabled: true }));
     console.log(chalk_1.default.green(`✅ Selected ${selectedTests.length} test(s)\n`));
-    // Step 4: Confirmation
+    // Step 4: Reporter Configuration
+    const reporterConfig = await configureReporter();
+    // Step 5: Confirmation
     await showConfirmation({
         url,
         crawlSite,
         selectedTests,
-        viewports: VIEWPORTS
+        viewports: VIEWPORTS,
+        reporter: reporterConfig
     });
+}
+async function configureReporter() {
+    console.log(chalk_1.default.blue('📊 Configure HTML Report Generation:\n'));
+    const { enableReporter } = await inquirer_1.default.prompt([
+        {
+            type: 'confirm',
+            name: 'enableReporter',
+            message: 'Would you like to generate an HTML report?',
+            default: false
+        }
+    ]);
+    if (!enableReporter) {
+        console.log(chalk_1.default.yellow('📄 HTML reporting disabled\n'));
+        return reporter_manager_js_1.ReporterManager.createDefaultConfig();
+    }
+    const reporterOptions = await inquirer_1.default.prompt([
+        {
+            type: 'list',
+            name: 'openBehavior',
+            message: 'When should the report be opened automatically?',
+            choices: [
+                { name: 'Never (I\'ll open it manually)', value: 'never' },
+                { name: 'Always (open immediately after generation)', value: 'always' },
+                { name: 'Only if tests failed', value: 'on-failure' }
+            ],
+            default: 'never'
+        },
+        {
+            type: 'confirm',
+            name: 'includeScreenshots',
+            message: 'Include screenshots in the HTML report?',
+            default: true
+        },
+        {
+            type: 'confirm',
+            name: 'includeDetailedLogs',
+            message: 'Include detailed test logs in the report?',
+            default: false
+        }
+    ]);
+    const reporterConfig = {
+        enabled: true,
+        type: 'html',
+        openBehavior: reporterOptions.openBehavior,
+        includeScreenshots: reporterOptions.includeScreenshots,
+        includeDetailedLogs: reporterOptions.includeDetailedLogs
+    };
+    console.log(chalk_1.default.green('✅ HTML reporter configured\n'));
+    return reporterConfig;
 }
 async function showConfirmation(config) {
     console.log(chalk_1.default.blue('📋 Test Configuration Summary:'));
@@ -114,6 +167,21 @@ async function showConfirmation(config) {
     console.log(chalk_1.default.white(`🕷️  Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
     console.log(chalk_1.default.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
     console.log(chalk_1.default.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
+    // Display reporter configuration
+    if (config.reporter?.enabled) {
+        console.log(chalk_1.default.white(`📊 HTML Report: Enabled (${config.reporter.openBehavior})`));
+        const features = [];
+        if (config.reporter.includeScreenshots)
+            features.push('Screenshots');
+        if (config.reporter.includeDetailedLogs)
+            features.push('Detailed Logs');
+        if (features.length > 0) {
+            console.log(chalk_1.default.white(`   Features: ${features.join(', ')}`));
+        }
+    }
+    else {
+        console.log(chalk_1.default.white(`📊 HTML Report: Disabled`));
+    }
     console.log(chalk_1.default.cyan('═'.repeat(50)));
     const { confirmed } = await inquirer_1.default.prompt([
         {

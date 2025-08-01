@@ -3,6 +3,7 @@ export interface TestConfig {
   crawlSite: boolean;
   selectedTests: TestType[];
   viewports: ViewportConfig[];
+  reporter?: ReporterConfig;
 }
 
 export interface TestType {
@@ -16,6 +17,15 @@ export interface ViewportConfig {
   name: string;
   width: number;
   height: number;
+}
+
+export interface ReporterConfig {
+  enabled: boolean;
+  type: 'html';
+  outputPath?: string;
+  openBehavior: 'always' | 'never' | 'on-failure';
+  includeScreenshots: boolean;
+  includeDetailedLogs: boolean;
 }
 
 export interface SessionSummary {
