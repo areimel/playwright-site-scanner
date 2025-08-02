@@ -1,9 +1,0 @@
-{
-	"id": "iyww3VdvTL4fMJh",
-	"json": "{\"id\":\"iyww3VdvTL4fMJh\",\"url\":\"https://advancedresearch.dev/blog\",\"loadedUrl\":\"https://advancedresearch.dev/blog/\",\"uniqueKey\":\"https://advancedresearch.dev/blog\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{\"__crawlee\":{\"enqueueStrategy\":\"same-domain\",\"state\":4}},\"handledAt\":\"2025-07-26T22:25:21.701Z\"}",
-	"method": "GET",
-	"orderNo": null,
-	"retryCount": 0,
-	"uniqueKey": "https://advancedresearch.dev/blog",
-	"url": "https://advancedresearch.dev/blog"
-}

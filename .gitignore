@@ -1,6 +1,7 @@
 node_modules/
 dist/
 playwright-site-scanner-sessions/
+storage/
 .env
 .env.local
 .env.development.local

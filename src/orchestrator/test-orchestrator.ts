@@ -6,6 +6,7 @@ import { SessionManager } from '../utils/session-manager.js';
 import { ProgressTracker } from '../utils/progress-tracker.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
 import { ParallelExecutor } from '../utils/parallel-executor.js';
+import { ReporterManager } from '../utils/reporter-manager.js';
 import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
@@ -20,6 +21,7 @@ export class TestOrchestrator {
   private progressTracker: ProgressTracker;
   private dataManager: SessionDataManager | null = null;
   private parallelExecutor: ParallelExecutor | null = null;
+  private reporterManager: ReporterManager | null = null;
   private siteCrawler: CrawleeSiteCrawler;
   private screenshotTester: ScreenshotTester;
   private seoTester: SEOTester;
@@ -59,9 +61,14 @@ export class TestOrchestrator {
       console.log(chalk.blue('🚀 Initializing browser and parallel execution...'));
       await this.initializeBrowser();
       
-      // Initialize data manager and parallel executor
+      // Initialize data manager, parallel executor, and reporter manager
       this.dataManager = new SessionDataManager(config.url, sessionSummary.sessionId);
       this.parallelExecutor = new ParallelExecutor(this.browser!, 5);
+      
+      // Initialize reporter if configured
+      if (config.reporter?.enabled) {
+        this.reporterManager = new ReporterManager(config.reporter, sessionSummary.sessionId);
+      }
 
       // Create session directory
       await this.sessionManager.createSessionDirectory(sessionSummary.sessionId);
@@ -88,6 +95,9 @@ export class TestOrchestrator {
       
       console.log(chalk.blue('\n📊 Generating session summary...'));
       await this.generateFinalSessionSummary(sessionSummary);
+      
+      // Generate HTML reports if configured
+      await this.generateHTMLReports(sessionSummary);
       
       // Display files created summary
       this.displayFilesCreated(sessionSummary.sessionId);
@@ -358,8 +368,7 @@ export class TestOrchestrator {
       // Find tests that ran for this specific page
       const pageTests = this.allTestResults.filter(result => {
         // Check if this test result is for this page
-        return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
-               result.testType === 'content-scraping'; // Content scraping runs per page
+        return result.outputPath?.includes(this.sessionManager.getPageName(url));
       });
       
       const pageResult: PageResult = {
@@ -462,10 +471,76 @@ export class TestOrchestrator {
     console.log(chalk.blue(`📁 Results saved to: playwright-site-scanner-sessions/${summary.sessionId}/`));
   }
 
+  private async generateHTMLReports(sessionSummary: SessionSummary): Promise<void> {
+    if (!this.reporterManager) {
+      return; // No reporter configured
+    }
+
+    try {
+      // Update reporter open behavior based on test results
+      this.reporterManager.updateOpenBehaviorBasedOnResults(sessionSummary);
+
+      // Generate page results from stored data and organize by URL
+      const pageResults: PageResult[] = [];
+      const urls = this.dataManager!.getUrls();
+      
+      for (const url of urls) {
+        const metrics = this.dataManager!.getPageMetrics(url);
+        const content = this.dataManager!.getScrapedContent(url);
+        
+        // Find tests that ran for this specific page
+        const pageTests = this.allTestResults.filter(result => {
+          // Check if this test result is for this page
+          return result.outputPath?.includes(this.sessionManager.getPageName(url));
+        });
+        
+        const pageResult: PageResult = {
+          url,
+          pageName: this.sessionManager.getPageName(url),
+          tests: pageTests,
+          summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${pageTests.length}`
+        };
+        
+        pageResults.push(pageResult);
+      }
+
+      // Add session-level tests to the first page result
+      if (pageResults.length > 0) {
+        const sessionTests = this.allTestResults.filter(result => 
+          result.testType === 'sitemap' || result.testType === 'site-summary'
+        );
+        
+        if (sessionTests.length > 0) {
+          pageResults[0].tests.push(...sessionTests);
+        }
+      }
+
+      // Generate reports
+      const reportResult = await this.reporterManager.generateReports(sessionSummary, pageResults);
+      
+      if (reportResult.success && reportResult.reportPaths.length > 0) {
+        console.log(chalk.green(`\n✅ Generated ${reportResult.reportPaths.length} HTML report(s)`));
+      } else if (reportResult.errors.length > 0) {
+        console.warn(chalk.yellow('\n⚠️  Some HTML reports failed to generate:'));
+        reportResult.errors.forEach(error => {
+          console.warn(chalk.yellow(`   - ${error}`));
+        });
+      }
+
+    } catch (error) {
+      console.error(chalk.red('\n❌ HTML report generation failed:'), error);
+    }
+  }
+
   private async cleanup(): Promise<void> {
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
+    }
+    
+    if (this.reporterManager) {
+      await this.reporterManager.cleanup();
+      this.reporterManager = null;
     }
   }
 }

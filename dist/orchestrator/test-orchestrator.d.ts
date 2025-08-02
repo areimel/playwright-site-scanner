@@ -5,6 +5,7 @@ export declare class TestOrchestrator {
     private progressTracker;
     private dataManager;
     private parallelExecutor;
+    private reporterManager;
     private siteCrawler;
     private screenshotTester;
     private seoTester;
@@ -44,6 +45,7 @@ export declare class TestOrchestrator {
     private generateFinalSessionSummary;
     private displayFilesCreated;
     private displayCompletionSummary;
+    private generateHTMLReports;
     private cleanup;
 }
 //# sourceMappingURL=test-orchestrator.d.ts.map
