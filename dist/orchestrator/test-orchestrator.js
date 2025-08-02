@@ -327,8 +327,7 @@ class TestOrchestrator {
             // Find tests that ran for this specific page
             const pageTests = this.allTestResults.filter(result => {
                 // Check if this test result is for this page
-                return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
-                    result.testType === 'content-scraping'; // Content scraping runs per page
+                return result.outputPath?.includes(this.sessionManager.getPageName(url));
             });
             const pageResult = {
                 url,
@@ -428,8 +427,7 @@ class TestOrchestrator {
                 // Find tests that ran for this specific page
                 const pageTests = this.allTestResults.filter(result => {
                     // Check if this test result is for this page
-                    return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
-                        result.testType === 'content-scraping'; // Content scraping runs per page
+                    return result.outputPath?.includes(this.sessionManager.getPageName(url));
                 });
                 const pageResult = {
                     url,
