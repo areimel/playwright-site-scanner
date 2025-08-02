@@ -11,7 +11,14 @@
     "start": "node dist/cli.js",
     "dev": "npm run build && npm start",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "build:binaries": "node scripts/build-binaries.js",
+    "build:binaries:shell": "bash scripts/build-binaries.sh",
+    "pkg:all": "npm run build && pkg dist/cli.js --config package.json --compress GZip",
+    "pkg:win": "npm run build && pkg dist/cli.js --targets node18-win-x64 --output dist/binaries/playwright-site-scanner-win.exe --compress GZip",
+    "pkg:mac": "npm run build && pkg dist/cli.js --targets node18-macos-x64 --output dist/binaries/playwright-site-scanner-macos --compress GZip",
+    "pkg:linux": "npm run build && pkg dist/cli.js --targets node18-linux-x64 --output dist/binaries/playwright-site-scanner-linux --compress GZip",
+    "release": "npm run clean && npm run build:binaries"
   },
   "keywords": [
     "playwright",
@@ -28,7 +35,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "chalk": "^5.4.1",
+    "chalk": "^4.1.2",
     "commander": "^14.0.0",
     "crawlee": "^3.13.10",
     "inquirer": "^12.8.2",
@@ -37,7 +44,26 @@
   "devDependencies": {
     "@types/inquirer": "^9.0.8",
     "@types/node": "^24.1.0",
+    "@yao-pkg/pkg": "^6.6.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.8.3"
+  },
+  "pkg": {
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "assets": [
+      "package.json"
+    ],
+    "targets": [
+      "node18-win-x64",
+      "node18-macos-x64",
+      "node18-linux-x64"
+    ],
+    "outputPath": "dist/binaries",
+    "options": [
+      "--no-bytecode",
+      "--public-packages=*"
+    ]
   }
 }

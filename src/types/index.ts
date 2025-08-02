@@ -4,6 +4,14 @@ export interface TestConfig {
   selectedTests: TestType[];
   viewports: ViewportConfig[];
   reporter?: ReporterConfig;
+  browser?: BrowserConfig;
+}
+
+export interface BrowserConfig {
+  customPath?: string;
+  skipBrowserCheck?: boolean;
+  autoDownload?: boolean;
+  preferredBrowser?: 'chromium' | 'firefox' | 'webkit';
 }
 
 export interface TestType {

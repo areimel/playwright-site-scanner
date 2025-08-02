@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(npm init:*)",
@@ -10,7 +11,15 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:crawlee.dev)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:playwright.dev)",
+      "Bash(chmod:*)",
+      "Bash(dist/binaries/playwright-site-scanner-win.exe browsers:check:*)",
+      "Bash(npm run pkg:win:*)",
+      "Bash(npm run clean:*)",
+      "Bash(npx pkg:*)",
+      "Bash(dist/binaries/playwright-site-scanner-win.exe:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, firefox, webkit, Browser, Page } from 'playwright';
 import chalk from 'chalk';
 import { TestConfig, SessionSummary, PageResult, TestResult, ProgressState } from '../types/index.js';
 import { TestPhaseManager, ExecutionStrategy, PhaseExecutionPlan } from '../types/test-phases.js';
@@ -7,6 +7,7 @@ import { ProgressTracker } from '../utils/progress-tracker.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
 import { ParallelExecutor } from '../utils/parallel-executor.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
+import { BrowserManager, BrowserInfo } from '../utils/browser-manager.js';
 import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
@@ -17,6 +18,8 @@ import { SiteSummaryTester } from '../lib/site-summary-tester.js';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;
+  private browserManager: BrowserManager;
+  private availableBrowser: BrowserInfo | null = null;
   private sessionManager: SessionManager;
   private progressTracker: ProgressTracker;
   private dataManager: SessionDataManager | null = null;
@@ -36,6 +39,7 @@ export class TestOrchestrator {
   constructor() {
     this.sessionManager = new SessionManager();
     this.progressTracker = new ProgressTracker();
+    this.browserManager = BrowserManager.create();
     this.siteCrawler = new CrawleeSiteCrawler();
     this.screenshotTester = new ScreenshotTester();
     this.seoTester = new SEOTester();
@@ -59,6 +63,22 @@ export class TestOrchestrator {
 
     try {
       console.log(chalk.blue('🚀 Initializing browser and parallel execution...'));
+      
+      // Configure browser manager based on config
+      if (config.browser) {
+        this.browserManager = BrowserManager.create({
+          customBrowserPath: config.browser.customPath,
+          skipBrowserCheck: config.browser.skipBrowserCheck,
+          autoDownload: config.browser.autoDownload
+        });
+      }
+      
+      // Check browser availability before proceeding
+      this.availableBrowser = await this.browserManager.ensureBrowserAvailable();
+      if (!this.availableBrowser) {
+        throw new Error('No browsers available for testing. Please install browsers or use --download-browsers flag.');
+      }
+      
       await this.initializeBrowser();
       
       // Initialize data manager, parallel executor, and reporter manager
@@ -114,10 +134,56 @@ export class TestOrchestrator {
   }
 
   private async initializeBrowser(): Promise<void> {
-    this.browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    if (!this.availableBrowser) {
+      throw new Error('No browser available for initialization');
+    }
+
+    // Get browser launch options from browser manager
+    const launchOptions = this.browserManager.getBrowserLaunchOptions(this.availableBrowser);
+    
+    // Determine which browser type to use
+    let browserType;
+    const browserName = this.availableBrowser.name.toLowerCase();
+    
+    switch (browserName) {
+      case 'firefox':
+        browserType = firefox;
+        console.log(chalk.blue('   🦊 Using Firefox browser'));
+        break;
+      case 'webkit':
+        browserType = webkit;
+        console.log(chalk.blue('   🍎 Using WebKit browser'));
+        break;
+      case 'chromium':
+      case 'chrome':
+      default:
+        browserType = chromium;
+        console.log(chalk.blue('   🌐 Using Chromium browser'));
+        break;
+    }
+    
+    try {
+      this.browser = await browserType.launch(launchOptions);
+      console.log(chalk.green('   ✅ Browser initialized successfully'));
+    } catch (error) {
+      console.error(chalk.red('   ❌ Browser initialization failed:'), error);
+      
+      // Fallback to default Chromium if available browser fails
+      if (browserName !== 'chromium') {
+        console.log(chalk.yellow('   🔄 Falling back to default Chromium...'));
+        try {
+          this.browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+          });
+          console.log(chalk.green('   ✅ Fallback browser initialized'));
+        } catch (fallbackError) {
+          throw new Error(`Browser initialization failed: ${fallbackError}`);
+        }
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**

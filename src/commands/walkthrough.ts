@@ -1,9 +1,15 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '../types/index.js';
+import { TestConfig, TestType, ViewportConfig, ReporterConfig, BrowserConfig } from '../types/index.js';
 import { validateUrl } from '../utils/validation.js';
 import { TestOrchestrator } from '../orchestrator/test-orchestrator.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
+
+interface CLIOptions {
+  downloadBrowsers?: boolean;
+  browserPath?: string;
+  skipBrowserCheck?: boolean;
+}
 
 const AVAILABLE_TESTS: TestType[] = [
   {
@@ -50,7 +56,7 @@ const VIEWPORTS: ViewportConfig[] = [
   { name: 'mobile', width: 375, height: 667 }
 ];
 
-export async function runWalkthrough(): Promise<void> {
+export async function runWalkthrough(cliOptions: CLIOptions = {}): Promise<void> {
   console.log(chalk.blue('🌐 Let\'s set up your website testing session!\n'));
 
   // Step 1: Get URL
@@ -112,14 +118,22 @@ export async function runWalkthrough(): Promise<void> {
   // Step 4: Reporter Configuration
   const reporterConfig = await configureReporter();
 
-  // Step 5: Confirmation
+  // Step 5: Browser Configuration
+  const browserConfig: BrowserConfig = {
+    customPath: cliOptions.browserPath,
+    skipBrowserCheck: cliOptions.skipBrowserCheck,
+    autoDownload: cliOptions.downloadBrowsers
+  };
+
+  // Step 6: Confirmation
   await showConfirmation({
     url,
     crawlSite,
     selectedTests,
     viewports: VIEWPORTS,
-    reporter: reporterConfig
-  });
+    reporter: reporterConfig,
+    browser: browserConfig
+  }, cliOptions);
 }
 
 async function configureReporter(): Promise<ReporterConfig> {
@@ -177,13 +191,25 @@ async function configureReporter(): Promise<ReporterConfig> {
   return reporterConfig;
 }
 
-async function showConfirmation(config: TestConfig): Promise<void> {
+async function showConfirmation(config: TestConfig, cliOptions: CLIOptions = {}): Promise<void> {
   console.log(chalk.blue('📋 Test Configuration Summary:'));
   console.log(chalk.cyan('═'.repeat(50)));
   console.log(chalk.white(`🌐 URL: ${config.url}`));
   console.log(chalk.white(`🕷️  Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
   console.log(chalk.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
   console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
+  
+  // Display browser configuration
+  const browserFeatures = [];
+  if (cliOptions.downloadBrowsers) browserFeatures.push('Auto-download browsers');
+  if (cliOptions.skipBrowserCheck) browserFeatures.push('Skip browser check');
+  if (cliOptions.browserPath) browserFeatures.push(`Custom browser: ${cliOptions.browserPath}`);
+  
+  if (browserFeatures.length > 0) {
+    console.log(chalk.white(`🌐 Browser: ${browserFeatures.join(', ')}`));
+  } else {
+    console.log(chalk.white(`🌐 Browser: Default configuration`));
+  }
   
   // Display reporter configuration
   if (config.reporter?.enabled) {

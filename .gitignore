@@ -1,10 +1,17 @@
+# Project Files
 node_modules/
 dist/
 playwright-site-scanner-sessions/
 storage/
+
+# ENV Files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Dist Binaries
+dist/binaries/playwright-site-scanner-linux
+dist/binaries/playwright-site-scanner-macos
+dist/binaries/playwright-site-scanner-windows.exe
