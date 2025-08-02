@@ -112,7 +112,44 @@ The orchestrator organizes tests into three sequential phases for optimal perfor
 5. Result aggregation and summary generation
 6. Browser cleanup
 
+**HTML Reporter Integration**
+- Interactive HTML reports generated using custom `HTMLReporter` class
+- Cross-platform auto-opening functionality with user-configurable behavior
+- Screenshot embedding with click-to-enlarge modal functionality
+- Integrated with three-phase orchestrator pattern for comprehensive test result display
+
 **TypeScript Configuration**
 - Targets ES2022 with CommonJS modules
 - Outputs to `dist/` with source maps and declarations
 - Strict mode enabled with comprehensive type checking
+
+## Known Issues & Fixes
+
+### HTML Reporter Duplicate Test Results (Fixed - August 2025)
+
+**Issue**: HTML Reporter was displaying duplicate content-scraping tests under each page, showing all content-scraping results from all pages rather than just the relevant tests for each specific page.
+
+**Root Cause**: Flawed filtering logic in `TestOrchestrator.ts` at two locations (lines 369-373 and 493-497) that included a redundant condition:
+
+```typescript
+// Problematic filtering logic
+const pageTests = this.allTestResults.filter(result => {
+  return result.outputPath?.includes(this.sessionManager.getPageName(url)) ||
+         result.testType === 'content-scraping'; // ← This was the problem
+});
+```
+
+The `|| result.testType === 'content-scraping'` condition incorrectly included ALL content-scraping tests from all pages for every page's results, causing massive duplication in multi-page crawls.
+
+**Solution**: Removed the redundant `|| result.testType === 'content-scraping'` condition from both filtering locations, leaving only the page-specific outputPath matching:
+
+```typescript
+// Corrected filtering logic
+const pageTests = this.allTestResults.filter(result => {
+  return result.outputPath?.includes(this.sessionManager.getPageName(url));
+});
+```
+
+**Result**: Each page in HTML reports now shows only its own test results, eliminating duplicate display while maintaining all correct functionality.
+
+**Files Modified**: `src/orchestrator/test-orchestrator.ts` (both `generateFinalSessionSummary()` and `generateHTMLReports()` methods)
