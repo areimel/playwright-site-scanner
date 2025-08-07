@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 import chalk from 'chalk';
-import { TestResult } from '../types/index.js';
-import { SessionManager } from '../utils/session-manager.js';
+import { TestResult } from '../types/index';
+import { SessionManager } from '../utils/session-manager';
 
 interface AccessibilityIssue {
   id: string;

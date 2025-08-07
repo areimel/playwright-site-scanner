@@ -1,20 +1,20 @@
 import { chromium, firefox, webkit, Browser, Page } from 'playwright';
 import chalk from 'chalk';
-import { TestConfig, SessionSummary, PageResult, TestResult, ProgressState } from '../types/index.js';
-import { TestPhaseManager, ExecutionStrategy, PhaseExecutionPlan } from '../types/test-phases.js';
-import { SessionManager } from '../utils/session-manager.js';
-import { ProgressTracker } from '../utils/progress-tracker.js';
-import { SessionDataManager } from '../utils/session-data-store.js';
-import { ParallelExecutor } from '../utils/parallel-executor.js';
-import { ReporterManager } from '../utils/reporter-manager.js';
-import { BrowserManager, BrowserInfo } from '../utils/browser-manager.js';
-import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
-import { ScreenshotTester } from '../lib/screenshot-tester.js';
-import { SEOTester } from '../lib/seo-tester.js';
-import { AccessibilityTester } from '../lib/accessibility-tester.js';
-import { SitemapTester } from '../lib/sitemap-tester.js';
-import { ContentScraper } from '../lib/content-scraper.js';
-import { SiteSummaryTester } from '../lib/site-summary-tester.js';
+import { TestConfig, SessionSummary, PageResult, TestResult, ProgressState } from '../types/index';
+import { TestPhaseManager, ExecutionStrategy, PhaseExecutionPlan } from '../types/test-phases';
+import { SessionManager } from '../utils/session-manager';
+import { ProgressTracker } from '../utils/progress-tracker';
+import { SessionDataManager } from '../utils/session-data-store';
+import { ParallelExecutor } from '../utils/parallel-executor';
+import { ReporterManager } from '../utils/reporter-manager';
+import { BrowserManager, BrowserInfo } from '../utils/browser-manager';
+import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler';
+import { ScreenshotTester } from '../lib/screenshot-tester';
+import { SEOTester } from '../lib/seo-tester';
+import { AccessibilityTester } from '../lib/accessibility-tester';
+import { SitemapTester } from '../lib/sitemap-tester';
+import { ContentScraper } from '../lib/content-scraper';
+import { SiteSummaryTester } from '../lib/site-summary-tester';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;

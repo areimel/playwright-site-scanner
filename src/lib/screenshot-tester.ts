@@ -1,7 +1,7 @@
 import { Page } from 'playwright';
 import chalk from 'chalk';
-import { TestResult, ViewportConfig } from '../types/index.js';
-import { SessionManager } from '../utils/session-manager.js';
+import { TestResult, ViewportConfig } from '../types/index';
+import { SessionManager } from '../utils/session-manager';
 
 export class ScreenshotTester {
   private sessionManager: SessionManager;

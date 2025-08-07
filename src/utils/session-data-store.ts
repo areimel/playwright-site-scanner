@@ -1,4 +1,4 @@
-import { ScrapedContent, SitemapEntry, PageSummary } from '../types/index.js';
+import { ScrapedContent, SitemapEntry, PageSummary } from '../types/index';
 
 export interface PageMetrics {
   url: string;

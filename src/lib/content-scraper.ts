@@ -2,9 +2,9 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { ScrapedContent, TestResult, HeadingData, ListData, ImageData, LinkData, PageMetadata } from '../types/index.js';
-import { SessionManager } from '../utils/session-manager.js';
-import { SessionDataManager } from '../utils/session-data-store.js';
+import { ScrapedContent, TestResult, HeadingData, ListData, ImageData, LinkData, PageMetadata } from '../types/index';
+import { SessionManager } from '../utils/session-manager';
+import { SessionDataManager } from '../utils/session-data-store';
 
 export class ContentScraper {
   private sessionManager: SessionManager;

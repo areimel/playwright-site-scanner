@@ -2,9 +2,9 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getWelcomeScreen, getBanner } from './utils/ascii-art.js';
-import { runWalkthrough } from './commands/walkthrough.js';
-import { BrowserManager } from './utils/browser-manager.js';
+import { getWelcomeScreen, getBanner } from './utils/ascii-art';
+import { runWalkthrough } from './commands/walkthrough';
+import { BrowserManager } from './utils/browser-manager';
 
 const program = new Command();
 
@@ -114,6 +114,27 @@ program
       process.exit(1);
     }
   });
+
+// Process handling for packaged environment
+process.on('uncaughtException', (error) => {
+  console.error(chalk.red('\n❌ Uncaught exception:'), error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(chalk.red('\n❌ Unhandled rejection at:'), promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// Ensure stdin is available for inquirer in packaged environment
+if ((process as any).pkg) {
+  // We're running in a packaged environment
+  try {
+    process.stdin.setRawMode = process.stdin.setRawMode || function(this: any) { return this; };
+  } catch (err) {
+    // Ignore errors setting raw mode in packaged environment
+  }
+}
 
 // If no command is provided, show welcome screen and run walkthrough
 if (process.argv.length === 2) {

@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { SessionSummary, PageResult } from '../types/index.js';
-import { sanitizePageName } from './validation.js';
+import { SessionSummary, PageResult } from '../types/index';
+import { sanitizePageName } from './validation';
 
 export class SessionManager {
   private readonly outputDir = 'playwright-site-scanner-sessions';

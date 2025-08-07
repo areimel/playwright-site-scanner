@@ -53,17 +53,13 @@
       "dist/**/*.js"
     ],
     "assets": [
-      "package.json"
+      "node_modules/playwright-core/**/*"
     ],
     "targets": [
       "node18-win-x64",
       "node18-macos-x64",
       "node18-linux-x64"
     ],
-    "outputPath": "dist/binaries",
-    "options": [
-      "--no-bytecode",
-      "--public-packages=*"
-    ]
+    "outputPath": "dist/binaries"
   }
 }

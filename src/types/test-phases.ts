@@ -1,4 +1,4 @@
-import { TestConfig } from './index.js';
+import { TestConfig } from './index';
 
 export type TestPhase = 1 | 2 | 3;
 

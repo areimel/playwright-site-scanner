@@ -1,6 +1,6 @@
 import { Browser, Page } from 'playwright';
 import chalk from 'chalk';
-import { TestResult, PageResult, TestConfig } from '../types/index.js';
+import { TestResult, PageResult, TestConfig } from '../types/index';
 
 export interface ParallelTask<T> {
   id: string;

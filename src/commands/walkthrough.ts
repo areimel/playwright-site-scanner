@@ -1,9 +1,9 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { TestConfig, TestType, ViewportConfig, ReporterConfig, BrowserConfig } from '../types/index.js';
-import { validateUrl } from '../utils/validation.js';
-import { TestOrchestrator } from '../orchestrator/test-orchestrator.js';
-import { ReporterManager } from '../utils/reporter-manager.js';
+import { TestConfig, TestType, ViewportConfig, ReporterConfig, BrowserConfig } from '../types/index';
+import { validateUrl } from '../utils/validation';
+import { TestOrchestrator } from '../orchestrator/test-orchestrator';
+import { ReporterManager } from '../utils/reporter-manager';
 
 interface CLIOptions {
   downloadBrowsers?: boolean;

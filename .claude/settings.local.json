@@ -19,7 +19,9 @@
       "Bash(npm run clean:*)",
       "Bash(npx pkg:*)",
       "Bash(dist/binaries/playwright-site-scanner-win.exe:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(distbinariesplaywright-site-scanner-win.exe:*)",
+      "Bash(./dist/binaries/playwright-site-scanner-win.exe --help)"
     ],
     "deny": []
   }
