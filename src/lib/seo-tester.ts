@@ -2,6 +2,8 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
+import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
+import { OutputContext } from '../types/test-output-types.js';
 
 interface SEOData {
   title: string;
@@ -24,14 +26,10 @@ export class SEOTester {
   }
 
   async runSEOScan(page: Page, pageUrl: string, sessionId: string): Promise<TestResult> {
-    const startTime = new Date();
-    const pageName = this.sessionManager.getPageName(pageUrl);
+    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
     
-    const testResult: TestResult = {
-      testType: 'seo-scan',
-      status: 'pending',
-      startTime
-    };
+    // Create initial test result using standardized system
+    const testResult = this.sessionManager.createStandardTestResult('seo', 'pending');
 
     try {
       console.log(chalk.gray(`    🔍 Running SEO scan...`));
@@ -39,17 +37,23 @@ export class SEOTester {
       const seoData = await this.extractSEOData(page);
       const seoReport = this.generateSEOReport(seoData, pageUrl);
 
-      await this.sessionManager.createPageDirectory(sessionId, pageName);
-      const scanPath = this.sessionManager.getScanPath(sessionId, pageName, 'seo-scan');
+      // Prepare output context for the SEO scan
+      const context: OutputContext = {
+        url: pageUrl,
+        pageName
+      };
       
-      const fs = await import('fs/promises');
-      await fs.writeFile(scanPath, seoReport, 'utf8');
-
-      testResult.status = 'success';
-      testResult.outputPath = scanPath;
+      // Save using the standardized output system
+      const saveResult = await this.sessionManager.saveTestOutput(seoReport, sessionId, 'seo', context);
+      
+      if (saveResult.success) {
+        testResult.status = 'success';
+        testResult.outputPath = saveResult.outputPath;
+      } else {
+        throw new Error(saveResult.error || 'Failed to save SEO report');
+      }
+      
       testResult.endTime = new Date();
-      
-      console.log(chalk.green(`    ✅ SEO scan completed`));
 
     } catch (error) {
       testResult.status = 'failed';

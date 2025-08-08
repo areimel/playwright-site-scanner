@@ -21,6 +21,7 @@ export interface TestClassification {
   dependencies: string[];
   conflictsWith: string[];
   resourceIntensive: boolean;
+  outputType: 'per-page' | 'site-wide';
 }
 
 // Test classifications for all available tests
@@ -33,7 +34,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 1,
     dependencies: [],
     conflictsWith: [],
-    resourceIntensive: true
+    resourceIntensive: true,
+    outputType: 'site-wide'
   },
   
   'sitemap': {
@@ -43,7 +45,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 2,
     dependencies: ['site-crawling'],
     conflictsWith: [],
-    resourceIntensive: false
+    resourceIntensive: false,
+    outputType: 'site-wide'
   },
 
   'content-scraping': {
@@ -53,7 +56,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 3,
     dependencies: ['site-crawling'],
     conflictsWith: [],
-    resourceIntensive: true
+    resourceIntensive: true,
+    outputType: 'per-page'
   },
 
   // Phase 2: Page Analysis & Testing
@@ -64,7 +68,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 1,
     dependencies: [],
     conflictsWith: ['accessibility'], // Both modify viewport
-    resourceIntensive: true
+    resourceIntensive: true,
+    outputType: 'per-page'
   },
 
   'seo': {
@@ -74,7 +79,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 2,
     dependencies: [],
     conflictsWith: [],
-    resourceIntensive: false
+    resourceIntensive: false,
+    outputType: 'per-page'
   },
 
   'accessibility': {
@@ -84,7 +90,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 3,
     dependencies: [],
     conflictsWith: ['screenshots'], // Both modify viewport
-    resourceIntensive: true
+    resourceIntensive: true,
+    outputType: 'per-page'
   },
 
   // Phase 3: Report Generation & Finalization
@@ -95,7 +102,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 1,
     dependencies: ['content-scraping'],
     conflictsWith: [],
-    resourceIntensive: false
+    resourceIntensive: false,
+    outputType: 'site-wide'
   }
 };
 

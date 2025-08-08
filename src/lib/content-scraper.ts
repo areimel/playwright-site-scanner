@@ -5,6 +5,8 @@ import path from 'path';
 import { ScrapedContent, TestResult, HeadingData, ListData, ImageData, LinkData, PageMetadata } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
+import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
+import { OutputContext } from '../types/test-output-types.js';
 
 export class ContentScraper {
   private sessionManager: SessionManager;
@@ -18,14 +20,10 @@ export class ContentScraper {
     pageUrl: string,
     sessionId: string
   ): Promise<TestResult> {
-    const startTime = new Date();
-    const pageName = this.sessionManager.getPageName(pageUrl);
+    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
     
-    const testResult: TestResult = {
-      testType: 'content-scraping',
-      status: 'pending',
-      startTime
-    };
+    // Create initial test result using standardized system
+    const testResult = this.sessionManager.createStandardTestResult('content-scraping', 'pending');
 
     try {
       console.log(chalk.gray(`    📝 Scraping page content...`));
@@ -44,14 +42,23 @@ export class ContentScraper {
       // Generate markdown content
       const markdownContent = this.generateMarkdown(scrapedContent, pageUrl);
 
-      // Save markdown file
-      const outputPath = await this.saveMarkdownContent(sessionId, pageName, markdownContent);
-
-      testResult.status = 'success';
-      testResult.outputPath = outputPath;
-      testResult.endTime = new Date();
+      // Prepare output context for the content scraping
+      const context: OutputContext = {
+        url: pageUrl,
+        pageName
+      };
       
-      console.log(chalk.green(`    ✅ Content scraping completed`));
+      // Save using the standardized output system
+      const saveResult = await this.sessionManager.saveTestOutput(markdownContent, sessionId, 'content-scraping', context);
+      
+      if (saveResult.success) {
+        testResult.status = 'success';
+        testResult.outputPath = saveResult.outputPath;
+      } else {
+        throw new Error(saveResult.error || 'Failed to save content scraping report');
+      }
+      
+      testResult.endTime = new Date();
 
     } catch (error) {
       testResult.status = 'failed';
