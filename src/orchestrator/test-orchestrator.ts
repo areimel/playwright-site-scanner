@@ -365,11 +365,12 @@ export class TestOrchestrator {
       const metrics = this.dataManager!.getPageMetrics(url);
       const content = this.dataManager!.getScrapedContent(url);
       
-      // Find tests that ran for this specific page
-      const pageTests = this.allTestResults.filter(result => {
-        // Check if this test result is for this page
-        return result.outputPath?.includes(this.sessionManager.getPageName(url));
-      });
+      // Find per-page tests that ran for this specific page using the new output type system
+      const pageTests = this.sessionManager.filterTestResultsByOutputType(this.allTestResults, 'per-page')
+        .filter(result => {
+          // Check if this test result is for this page
+          return result.outputPath?.includes(this.sessionManager.getPageName(url));
+        });
       
       const pageResult: PageResult = {
         url,
@@ -381,11 +382,9 @@ export class TestOrchestrator {
       pageResults.push(pageResult);
     }
 
-    // Add session-level tests to the first page result (or create a separate section)
+    // Add site-wide tests to the first page result (or create a separate section)
     if (pageResults.length > 0) {
-      const sessionTests = this.allTestResults.filter(result => 
-        result.testType === 'sitemap' || result.testType === 'site-summary'
-      );
+      const sessionTests = this.sessionManager.filterTestResultsByOutputType(this.allTestResults, 'site-wide');
       
       if (sessionTests.length > 0) {
         // Add session tests to first page or create a summary entry
@@ -488,11 +487,12 @@ export class TestOrchestrator {
         const metrics = this.dataManager!.getPageMetrics(url);
         const content = this.dataManager!.getScrapedContent(url);
         
-        // Find tests that ran for this specific page
-        const pageTests = this.allTestResults.filter(result => {
-          // Check if this test result is for this page
-          return result.outputPath?.includes(this.sessionManager.getPageName(url));
-        });
+        // Find per-page tests that ran for this specific page using the new output type system
+        const pageTests = this.sessionManager.filterTestResultsByOutputType(this.allTestResults, 'per-page')
+          .filter(result => {
+            // Check if this test result is for this page
+            return result.outputPath?.includes(this.sessionManager.getPageName(url));
+          });
         
         const pageResult: PageResult = {
           url,
@@ -504,11 +504,9 @@ export class TestOrchestrator {
         pageResults.push(pageResult);
       }
 
-      // Add session-level tests to the first page result
+      // Add site-wide tests to the first page result
       if (pageResults.length > 0) {
-        const sessionTests = this.allTestResults.filter(result => 
-          result.testType === 'sitemap' || result.testType === 'site-summary'
-        );
+        const sessionTests = this.sessionManager.filterTestResultsByOutputType(this.allTestResults, 'site-wide');
         
         if (sessionTests.length > 0) {
           pageResults[0].tests.push(...sessionTests);

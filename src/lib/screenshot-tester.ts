@@ -2,6 +2,8 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { TestResult, ViewportConfig } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
+import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
+import { OutputContext } from '../types/test-output-types.js';
 
 export class ScreenshotTester {
   private sessionManager: SessionManager;
@@ -16,14 +18,10 @@ export class ScreenshotTester {
     viewport: ViewportConfig, 
     sessionId: string
   ): Promise<TestResult> {
-    const startTime = new Date();
-    const pageName = this.sessionManager.getPageName(pageUrl);
+    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
     
-    const testResult: TestResult = {
-      testType: `screenshot-${viewport.name}`,
-      status: 'pending',
-      startTime
-    };
+    // Create initial test result using standardized system
+    const testResult = this.sessionManager.createStandardTestResult('screenshots', 'pending');
 
     try {
       console.log(chalk.gray(`    📸 Capturing ${viewport.name} screenshot (${viewport.width}x${viewport.height})`));
@@ -37,24 +35,32 @@ export class ScreenshotTester {
       // Wait for any lazy-loaded content
       await page.waitForTimeout(1000);
 
-      // Ensure page directory exists
-      await this.sessionManager.createPageDirectory(sessionId, pageName);
+      // Prepare output context for the screenshot
+      const context: OutputContext = {
+        url: pageUrl,
+        pageName,
+        viewport: viewport.name
+      };
       
-      // Generate screenshot path
-      const screenshotPath = this.sessionManager.getScreenshotPath(sessionId, pageName, viewport.name);
+      // Generate output path using the standardized system
+      const outputPath = this.sessionManager.generateOutputPath(sessionId, 'screenshots', context);
+      
+      // Ensure directory exists
+      await this.sessionManager.getOutputHandler().ensureOutputDirectory(outputPath);
       
       // Capture screenshot
       await page.screenshot({
-        path: screenshotPath,
+        path: outputPath,
         fullPage: true,
         animations: 'disabled'
       });
 
+      // Update test result with success
       testResult.status = 'success';
-      testResult.outputPath = screenshotPath;
+      testResult.outputPath = outputPath;
       testResult.endTime = new Date();
       
-      console.log(chalk.green(`    ✅ ${viewport.name} screenshot saved`));
+      console.log(chalk.green(`        📄 Screenshot saved: ${outputPath}`));
 
     } catch (error) {
       testResult.status = 'failed';
@@ -75,14 +81,10 @@ export class ScreenshotTester {
     sessionId: string,
     elementName: string
   ): Promise<TestResult> {
-    const startTime = new Date();
-    const pageName = this.sessionManager.getPageName(pageUrl);
+    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
     
-    const testResult: TestResult = {
-      testType: `screenshot-${viewport.name}-${elementName}`,
-      status: 'pending',
-      startTime
-    };
+    // Create initial test result using standardized system
+    const testResult = this.sessionManager.createStandardTestResult('screenshots', 'pending');
 
     try {
       console.log(chalk.gray(`    📸 Capturing ${elementName} element screenshot`));
@@ -95,24 +97,34 @@ export class ScreenshotTester {
       const element = await page.locator(selector);
       await element.waitFor({ state: 'visible' });
 
-      await this.sessionManager.createPageDirectory(sessionId, pageName);
+      // Prepare output context for the element screenshot
+      const context: OutputContext = {
+        url: pageUrl,
+        pageName,
+        viewport: `${viewport.name}-${elementName}`,
+        additionalData: {
+          element: elementName,
+          selector
+        }
+      };
       
-      const screenshotPath = this.sessionManager.getScreenshotPath(
-        sessionId, 
-        pageName, 
-        `${viewport.name}-${elementName}`
-      );
+      // Generate output path using the standardized system
+      const outputPath = this.sessionManager.generateOutputPath(sessionId, 'screenshots', context);
+      
+      // Ensure directory exists
+      await this.sessionManager.getOutputHandler().ensureOutputDirectory(outputPath);
       
       await element.screenshot({
-        path: screenshotPath,
+        path: outputPath,
         animations: 'disabled'
       });
 
+      // Update test result with success
       testResult.status = 'success';
-      testResult.outputPath = screenshotPath;
+      testResult.outputPath = outputPath;
       testResult.endTime = new Date();
       
-      console.log(chalk.green(`    ✅ ${elementName} element screenshot saved`));
+      console.log(chalk.green(`        📄 Element screenshot saved: ${outputPath}`));
 
     } catch (error) {
       testResult.status = 'failed';

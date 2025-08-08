@@ -1,10 +1,17 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { SessionSummary, PageResult } from '../types/index.js';
+import { SessionSummary, PageResult, TestResult } from '../types/index.js';
 import { sanitizePageName } from './validation.js';
+import { StandardTestOutputHandler } from './test-output-handler.js';
+import { OUTPUT_CONFIGURATIONS, OutputContext } from '../types/test-output-types.js';
 
 export class SessionManager {
   private readonly outputDir = 'playwright-site-scanner-sessions';
+  private outputHandler: StandardTestOutputHandler;
+
+  constructor() {
+    this.outputHandler = new StandardTestOutputHandler(this.outputDir);
+  }
 
   createSessionId(): string {
     const now = new Date();
@@ -141,5 +148,94 @@ export class SessionManager {
     }
     
     return markdown;
+  }
+
+  /**
+   * Generate standardized output path for a test using the new output system
+   */
+  generateOutputPath(
+    sessionId: string,
+    testType: string,
+    context: OutputContext
+  ): string {
+    const config = OUTPUT_CONFIGURATIONS[testType];
+    if (!config) {
+      throw new Error(`No output configuration found for test type: ${testType}`);
+    }
+    
+    return this.outputHandler.generateOutputPath(sessionId, testType, config, context);
+  }
+
+  /**
+   * Save test output using the standardized output handler
+   */
+  async saveTestOutput(
+    content: string | Buffer,
+    sessionId: string,
+    testType: string,
+    context: OutputContext
+  ): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+    const config = OUTPUT_CONFIGURATIONS[testType];
+    if (!config) {
+      return {
+        success: false,
+        error: `No output configuration found for test type: ${testType}`
+      };
+    }
+
+    const outputPath = this.generateOutputPath(sessionId, testType, context);
+    const result = await this.outputHandler.saveOutput(content, outputPath, config);
+    
+    return {
+      success: result.success,
+      outputPath: result.outputPath,
+      error: result.error
+    };
+  }
+
+  /**
+   * Get the output handler for direct access when needed
+   */
+  getOutputHandler(): StandardTestOutputHandler {
+    return this.outputHandler;
+  }
+
+  /**
+   * Create a standardized test result using the output system
+   */
+  createStandardTestResult(
+    testType: string,
+    status: 'success' | 'failed' | 'pending' = 'pending',
+    outputPath?: string,
+    error?: string
+  ): TestResult {
+    const config = OUTPUT_CONFIGURATIONS[testType];
+    
+    return {
+      testType,
+      status,
+      startTime: new Date(),
+      endTime: status !== 'pending' ? new Date() : undefined,
+      outputPath,
+      outputType: config?.type,
+      error
+    };
+  }
+
+  /**
+   * Filter test results by output type for better organization
+   */
+  filterTestResultsByOutputType(
+    results: TestResult[], 
+    outputType: 'per-page' | 'site-wide'
+  ): TestResult[] {
+    return StandardTestOutputHandler.filterResultsByOutputType(results, outputType);
+  }
+
+  /**
+   * Group per-page test results by page for organized reporting
+   */
+  groupPerPageResultsByPage(results: TestResult[]): Map<string, TestResult[]> {
+    return StandardTestOutputHandler.groupPerPageResultsByPage(results);
   }
 }

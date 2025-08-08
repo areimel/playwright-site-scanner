@@ -54,6 +54,7 @@ export interface TestResult {
   endTime?: Date;
   outputPath?: string;
   error?: string;
+  outputType?: 'per-page' | 'site-wide';
 }
 
 export interface ProgressState {

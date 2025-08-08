@@ -2,6 +2,8 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
+import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
+import { OutputContext } from '../types/test-output-types.js';
 
 interface AccessibilityIssue {
   id: string;
@@ -31,14 +33,10 @@ export class AccessibilityTester {
   }
 
   async runAccessibilityScan(page: Page, pageUrl: string, sessionId: string): Promise<TestResult> {
-    const startTime = new Date();
-    const pageName = this.sessionManager.getPageName(pageUrl);
+    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
     
-    const testResult: TestResult = {
-      testType: 'accessibility-scan',
-      status: 'pending',
-      startTime
-    };
+    // Create initial test result using standardized system
+    const testResult = this.sessionManager.createStandardTestResult('accessibility', 'pending');
 
     try {
       console.log(chalk.gray(`    ♿ Running accessibility scan...`));
@@ -52,14 +50,22 @@ export class AccessibilityTester {
       // Generate report
       const report = this.generateAccessibilityReport(results, pageUrl);
 
-      await this.sessionManager.createPageDirectory(sessionId, pageName);
-      const scanPath = this.sessionManager.getScanPath(sessionId, pageName, 'accessibility-scan');
+      // Prepare output context for the accessibility scan
+      const context: OutputContext = {
+        url: pageUrl,
+        pageName
+      };
       
-      const fs = await import('fs/promises');
-      await fs.writeFile(scanPath, report, 'utf8');
-
-      testResult.status = 'success';
-      testResult.outputPath = scanPath;
+      // Save using the standardized output system
+      const saveResult = await this.sessionManager.saveTestOutput(report, sessionId, 'accessibility', context);
+      
+      if (saveResult.success) {
+        testResult.status = 'success';
+        testResult.outputPath = saveResult.outputPath;
+      } else {
+        throw new Error(saveResult.error || 'Failed to save accessibility report');
+      }
+      
       testResult.endTime = new Date();
       
       const violationCount = results.violations.length;
