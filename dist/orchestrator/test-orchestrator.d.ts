@@ -13,6 +13,7 @@ export declare class TestOrchestrator {
     private sitemapTester;
     private contentScraper;
     private siteSummaryTester;
+    private apiKeyTester;
     private allTestResults;
     constructor();
     runTests(config: TestConfig): Promise<void>;

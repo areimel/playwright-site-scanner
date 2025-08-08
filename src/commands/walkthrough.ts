@@ -41,6 +41,12 @@ const AVAILABLE_TESTS: TestType[] = [
     name: 'Site Summary',
     description: 'Generate comprehensive site overview report',
     enabled: false
+  },
+  {
+    id: 'api-key-scan',
+    name: 'API Key Security Scan',
+    description: 'Scan for exposed API keys and tokens across all pages',
+    enabled: false
   }
 ];
 

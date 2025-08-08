@@ -59,6 +59,15 @@ exports.TEST_CLASSIFICATIONS = {
         conflictsWith: ['screenshots'], // Both modify viewport
         resourceIntensive: true
     },
+    'api-key-scan': {
+        testId: 'api-key-scan',
+        phase: 2,
+        scope: 'page',
+        executionOrder: 4,
+        dependencies: [],
+        conflictsWith: [],
+        resourceIntensive: false
+    },
     // Phase 3: Report Generation & Finalization
     'site-summary': {
         testId: 'site-summary',

@@ -14,6 +14,7 @@ import { AccessibilityTester } from '../lib/accessibility-tester.js';
 import { SitemapTester } from '../lib/sitemap-tester.js';
 import { ContentScraper } from '../lib/content-scraper.js';
 import { SiteSummaryTester } from '../lib/site-summary-tester.js';
+import { APIKeyTester } from '../lib/api-key-tester.js';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;
@@ -29,6 +30,7 @@ export class TestOrchestrator {
   private sitemapTester: SitemapTester;
   private contentScraper: ContentScraper;
   private siteSummaryTester: SiteSummaryTester;
+  private apiKeyTester: APIKeyTester;
 
   // Track all test results for session summary
   private allTestResults: TestResult[] = [];
@@ -43,6 +45,7 @@ export class TestOrchestrator {
     this.sitemapTester = new SitemapTester();
     this.contentScraper = new ContentScraper();
     this.siteSummaryTester = new SiteSummaryTester();
+    this.apiKeyTester = new APIKeyTester();
   }
 
   async runTests(config: TestConfig): Promise<void> {
@@ -262,6 +265,8 @@ export class TestOrchestrator {
                     return await this.seoTester.runSEOScan(page, url, this.dataManager!.sessionId);
                   case 'accessibility':
                     return await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager!.sessionId);
+                  case 'api-key-scan':
+                    return await this.apiKeyTester.scanPageForAPIKeys(page, url, this.dataManager!);
                   default:
                     throw new Error(`Unknown page test: ${testType}`);
                 }
@@ -287,6 +292,21 @@ export class TestOrchestrator {
     phase2Results.successful.forEach(result => {
       this.allTestResults.push(result.result as TestResult);
     });
+
+    // Generate consolidated API key security report if API key scanning was enabled
+    if (pageTests.includes('api-key-scan')) {
+      console.log(chalk.blue('   🔐 Generating consolidated API key security report...'));
+      try {
+        const securityReportResult = await this.apiKeyTester.generateConsolidatedReport(this.dataManager!.sessionId);
+        this.allTestResults.push(securityReportResult);
+        
+        if (securityReportResult.status === 'success') {
+          console.log(chalk.green('   ✅ API key security report generated successfully'));
+        }
+      } catch (error) {
+        console.log(chalk.red(`   ❌ Failed to generate API key security report: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }
 
     this.dataManager!.markPhaseComplete(2);
     console.log(chalk.green('   ✅ Phase 2 completed\n'));
@@ -346,6 +366,7 @@ export class TestOrchestrator {
       'screenshots': 'Screenshots',
       'seo': 'SEO Scan',
       'accessibility': 'Accessibility Scan',
+      'api-key-scan': 'API Key Security Scan',
       'site-summary': 'Site Summary'
     };
     
