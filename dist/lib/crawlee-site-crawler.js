@@ -18,11 +18,18 @@ class CrawleeSiteCrawler {
         try {
             // Clear any existing dataset
             await this.clearDataset();
+            // Capture reference to this instance for use in crawler callbacks
+            const self = this;
             const crawler = new crawlee_1.PlaywrightCrawler({
                 maxRequestsPerCrawl: maxPages,
                 headless: true,
                 async requestHandler({ request, page, enqueueLinks, log }) {
                     try {
+                        // Double-check URL filtering for any URLs that might have slipped through
+                        if (!self.isPageUrl(request.loadedUrl || request.url)) {
+                            console.log(chalk_1.default.yellow(`      🚫 Skipping filtered page: ${request.loadedUrl || request.url}`));
+                            return;
+                        }
                         // Wait for page to be fully loaded
                         await page.waitForLoadState('networkidle');
                         const title = await page.title();
@@ -34,10 +41,17 @@ class CrawleeSiteCrawler {
                             title: title || 'No title',
                             timestamp: new Date().toISOString()
                         });
-                        // Only enqueue links from the same domain
+                        // Only enqueue links from the same domain and that pass our URL filtering
                         await enqueueLinks({
                             selector: 'a[href]',
-                            strategy: 'same-domain'
+                            strategy: 'same-domain',
+                            transformRequestFunction: (req) => {
+                                if (!self.isPageUrl(req.url)) {
+                                    console.log(chalk_1.default.gray(`      🚫 Skipping filtered URL: ${req.url}`));
+                                    return false; // Skip this URL
+                                }
+                                return req;
+                            }
                         });
                     }
                     catch (error) {
