@@ -94,6 +94,17 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     outputType: 'per-page'
   },
 
+  'api-key-scan': {
+    testId: 'api-key-scan',
+    phase: 2,
+    scope: 'session',
+    executionOrder: 4,
+    dependencies: [],
+    conflictsWith: [],
+    resourceIntensive: false,
+    outputType: 'site-wide'
+  },
+
   // Phase 3: Report Generation & Finalization
   'site-summary': {
     testId: 'site-summary',
@@ -196,10 +207,22 @@ export class TestPhaseManager {
     );
     
     if (phase2Tests.length > 0) {
+      const sessionTests: string[] = [];
+      const pageTests: string[] = [];
+      
+      phase2Tests.forEach(testId => {
+        const classification = TEST_CLASSIFICATIONS[testId];
+        if (classification.scope === 'session') {
+          sessionTests.push(testId);
+        } else {
+          pageTests.push(testId);
+        }
+      });
+
       phases.push({
         phase: 2,
-        sessionTests: [],
-        pageTests: phase2Tests,
+        sessionTests,
+        pageTests,
         maxConcurrency: 5 // Higher concurrency for analysis
       });
     }

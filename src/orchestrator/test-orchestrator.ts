@@ -14,6 +14,7 @@ import { AccessibilityTester } from '../lib/accessibility-tester.js';
 import { SitemapTester } from '../lib/sitemap-tester.js';
 import { ContentScraper } from '../lib/content-scraper.js';
 import { SiteSummaryTester } from '../lib/site-summary-tester.js';
+import { ApiKeyTester } from '../lib/api-key-tester.js';
 
 export class TestOrchestrator {
   private browser: Browser | null = null;
@@ -29,6 +30,7 @@ export class TestOrchestrator {
   private sitemapTester: SitemapTester;
   private contentScraper: ContentScraper;
   private siteSummaryTester: SiteSummaryTester;
+  private apiKeyTester: ApiKeyTester;
 
   // Track all test results for session summary
   private allTestResults: TestResult[] = [];
@@ -43,6 +45,7 @@ export class TestOrchestrator {
     this.sitemapTester = new SitemapTester();
     this.contentScraper = new ContentScraper();
     this.siteSummaryTester = new SiteSummaryTester();
+    this.apiKeyTester = new ApiKeyTester();
   }
 
   async runTests(config: TestConfig): Promise<void> {
@@ -216,14 +219,20 @@ export class TestOrchestrator {
    */
   private async executePhase2(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
     const phase2Plan = strategy.phases.find(p => p.phase === 2);
-    if (!phase2Plan || phase2Plan.pageTests.length === 0) return;
+    if (!phase2Plan || (phase2Plan.pageTests.length === 0 && phase2Plan.sessionTests.length === 0)) return;
 
     console.log(chalk.blue('\n🔬 Phase 2: Page Analysis & Testing'));
     
     const urls = this.dataManager!.getUrls();
     const pageTests = phase2Plan.pageTests;
+    const sessionTests = phase2Plan.sessionTests;
     
-    console.log(chalk.gray(`   🎯 Running ${pageTests.length} test types on ${urls.length} pages...`));
+    if (pageTests.length > 0) {
+      console.log(chalk.gray(`   🎯 Running ${pageTests.length} page test types on ${urls.length} pages...`));
+    }
+    if (sessionTests.length > 0) {
+      console.log(chalk.gray(`   🔐 Running ${sessionTests.length} session test types...`));
+    }
 
     // Create all page test tasks
     const allPageTasks: any[] = [];
@@ -262,6 +271,8 @@ export class TestOrchestrator {
                     return await this.seoTester.runSEOScan(page, url, this.dataManager!.sessionId);
                   case 'accessibility':
                     return await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager!.sessionId);
+                  case 'api-key-scan':
+                    return await this.apiKeyTester.runApiKeyScan(page, url, this.dataManager!.sessionId);
                   default:
                     throw new Error(`Unknown page test: ${testType}`);
                 }
@@ -275,18 +286,48 @@ export class TestOrchestrator {
     }
 
     // Execute all page tests in parallel
-    const phase2Results = await this.parallelExecutor!.executeTasks(allPageTasks, {
-      description: 'page analysis tests',
-      maxConcurrency: phase2Plan.maxConcurrency,
-      onProgress: (completed, total) => {
-        console.log(chalk.gray(`      Progress: ${completed}/${total} tests completed`));
-      }
-    });
-    
-    // Collect Phase 2 results
-    phase2Results.successful.forEach(result => {
-      this.allTestResults.push(result.result as TestResult);
-    });
+    if (allPageTasks.length > 0) {
+      const phase2Results = await this.parallelExecutor!.executeTasks(allPageTasks, {
+        description: 'page analysis tests',
+        maxConcurrency: phase2Plan.maxConcurrency,
+        onProgress: (completed, total) => {
+          console.log(chalk.gray(`      Progress: ${completed}/${total} tests completed`));
+        }
+      });
+      
+      // Collect page test results
+      phase2Results.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
+      });
+    }
+
+    // Execute session-level tests
+    if (sessionTests.length > 0) {
+      console.log(chalk.gray(`   🔐 Processing session-level tests...`));
+      
+      const sessionTasks = sessionTests.map(testId => ({
+        id: testId,
+        name: this.getTestName(testId),
+        execute: async () => {
+          switch (testId) {
+            case 'api-key-scan':
+              return await this.apiKeyTester.generateFinalReport(this.dataManager!.sessionId, urls);
+            default:
+              throw new Error(`Unknown session test: ${testId}`);
+          }
+        }
+      }));
+
+      const sessionResults = await this.parallelExecutor!.executeTasks(sessionTasks, {
+        description: 'session tests',
+        maxConcurrency: 2
+      });
+      
+      // Collect session test results
+      sessionResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
+      });
+    }
 
     this.dataManager!.markPhaseComplete(2);
     console.log(chalk.green('   ✅ Phase 2 completed\n'));
@@ -346,7 +387,8 @@ export class TestOrchestrator {
       'screenshots': 'Screenshots',
       'seo': 'SEO Scan',
       'accessibility': 'Accessibility Scan',
-      'site-summary': 'Site Summary'
+      'site-summary': 'Site Summary',
+      'api-key-scan': 'API Key Security Scan'
     };
     
     return testNames[testId] || testId;

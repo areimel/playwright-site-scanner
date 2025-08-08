@@ -155,6 +155,14 @@ export const OUTPUT_CONFIGURATIONS: Record<string, OutputConfiguration> = {
     filenamePattern: 'site-summary',
     includeInReports: true,
     mimeType: 'text/markdown'
+  },
+  
+  'api-key-scan': {
+    type: 'site-wide',
+    fileExtension: 'md',
+    filenamePattern: 'api-key-security-report',
+    includeInReports: true,
+    mimeType: 'text/markdown'
   }
 };
 

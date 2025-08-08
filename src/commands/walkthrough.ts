@@ -41,6 +41,12 @@ const AVAILABLE_TESTS: TestType[] = [
     name: 'Site Summary',
     description: 'Generate comprehensive site overview report',
     enabled: false
+  },
+  {
+    id: 'api-key-scan',
+    name: 'API Key Security Scan',
+    description: 'Scan site for exposed API keys and security tokens',
+    enabled: false
   }
 ];
 
@@ -123,57 +129,17 @@ export async function runWalkthrough(): Promise<void> {
 }
 
 async function configureReporter(): Promise<ReporterConfig> {
-  console.log(chalk.blue('📊 Configure HTML Report Generation:\n'));
-
-  const { enableReporter } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'enableReporter',
-      message: 'Would you like to generate an HTML report?',
-      default: false
-    }
-  ]);
-
-  if (!enableReporter) {
-    console.log(chalk.yellow('📄 HTML reporting disabled\n'));
-    return ReporterManager.createDefaultConfig();
-  }
-
-  const reporterOptions = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'openBehavior',
-      message: 'When should the report be opened automatically?',
-      choices: [
-        { name: 'Never (I\'ll open it manually)', value: 'never' },
-        { name: 'Always (open immediately after generation)', value: 'always' },
-        { name: 'Only if tests failed', value: 'on-failure' }
-      ],
-      default: 'never'
-    },
-    {
-      type: 'confirm',
-      name: 'includeScreenshots',
-      message: 'Include screenshots in the HTML report?',
-      default: true
-    },
-    {
-      type: 'confirm',
-      name: 'includeDetailedLogs',
-      message: 'Include detailed test logs in the report?',
-      default: false
-    }
-  ]);
+  console.log(chalk.blue('📊 HTML Report Generation:\n'));
 
   const reporterConfig: ReporterConfig = {
     enabled: true,
     type: 'html',
-    openBehavior: reporterOptions.openBehavior,
-    includeScreenshots: reporterOptions.includeScreenshots,
-    includeDetailedLogs: reporterOptions.includeDetailedLogs
+    openBehavior: 'always',
+    includeScreenshots: true,
+    includeDetailedLogs: true
   };
 
-  console.log(chalk.green('✅ HTML reporter configured\n'));
+  console.log(chalk.green('✅ HTML reporter enabled with screenshots and detailed logs\n'));
   return reporterConfig;
 }
 
