@@ -27,7 +27,7 @@ export declare class ParallelExecutor {
     private maxConcurrency;
     constructor(browser: Browser, maxConcurrency?: number);
     /**
-     * Execute multiple tasks in parallel with concurrency control
+     * Execute multiple tasks in parallel with concurrency control using worker pool pattern
      */
     executeTasks<T>(tasks: ParallelTask<T>[], options?: {
         maxConcurrency?: number;
@@ -35,7 +35,7 @@ export declare class ParallelExecutor {
         onProgress?: (completed: number, total: number) => void;
     }): Promise<BatchResult<T>>;
     /**
-     * Execute page-level tests in parallel across multiple pages
+     * Execute page-level tests in parallel across multiple pages using worker pool pattern
      */
     executePageTests(urls: string[], pageTestTasks: PageTestTask[], options?: {
         maxConcurrency?: number;
@@ -65,8 +65,8 @@ export declare class ParallelExecutor {
     private getPageName;
     private generatePageSummary;
     /**
-     * Batch processing utility for large datasets
+     * Parallel processing utility for large datasets using worker pool pattern
      */
-    processBatches<T, R>(items: T[], processor: (batch: T[]) => Promise<R[]>, batchSize?: number, onBatchComplete?: (batchIndex: number, totalBatches: number) => void): Promise<R[]>;
+    processBatches<T, R>(items: T[], processor: (item: T) => Promise<R>, maxConcurrency?: number, onItemComplete?: (completedItems: number, totalItems: number) => void): Promise<R[]>;
 }
 //# sourceMappingURL=parallel-executor.d.ts.map

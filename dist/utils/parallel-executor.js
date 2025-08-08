@@ -13,7 +13,7 @@ class ParallelExecutor {
         this.maxConcurrency = maxConcurrency;
     }
     /**
-     * Execute multiple tasks in parallel with concurrency control
+     * Execute multiple tasks in parallel with concurrency control using worker pool pattern
      */
     async executeTasks(tasks, options = {}) {
         const startTime = Date.now();
@@ -22,18 +22,20 @@ class ParallelExecutor {
         console.log(chalk_1.default.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
         const successful = [];
         const failed = [];
-        // Process tasks in batches
-        for (let i = 0; i < tasks.length; i += concurrency) {
-            const batch = tasks.slice(i, i + concurrency);
-            console.log(chalk_1.default.gray(`   Processing batch ${Math.floor(i / concurrency) + 1} (${batch.length} ${description})`));
-            const batchPromises = batch.map(async (task) => {
+        const taskQueue = [...tasks]; // Copy array to avoid mutation
+        const runningPromises = [];
+        // Worker function that processes tasks from the queue
+        const worker = async () => {
+            while (taskQueue.length > 0) {
+                const task = taskQueue.shift();
+                if (!task)
+                    break;
                 try {
                     const result = await task.execute();
                     successful.push({ id: task.id, result });
                     if (options.onProgress) {
                         options.onProgress(successful.length + failed.length, tasks.length);
                     }
-                    return { success: true, id: task.id, result };
                 }
                 catch (error) {
                     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -42,18 +44,23 @@ class ParallelExecutor {
                     if (options.onProgress) {
                         options.onProgress(successful.length + failed.length, tasks.length);
                     }
-                    return { success: false, id: task.id, error: errorMessage };
                 }
-            });
-            await Promise.all(batchPromises);
+            }
+        };
+        // Start worker pool with maximum concurrency
+        const workerCount = Math.min(concurrency, tasks.length);
+        for (let i = 0; i < workerCount; i++) {
+            runningPromises.push(worker());
         }
+        // Wait for all workers to complete
+        await Promise.all(runningPromises);
         const duration = Date.now() - startTime;
         console.log(chalk_1.default.green(`✅ Completed ${tasks.length} ${description} in ${duration}ms`));
         console.log(chalk_1.default.green(`   Success: ${successful.length}, Failed: ${failed.length}`));
         return { successful, failed, duration };
     }
     /**
-     * Execute page-level tests in parallel across multiple pages
+     * Execute page-level tests in parallel across multiple pages using worker pool pattern
      */
     async executePageTests(urls, pageTestTasks, options = {}) {
         const concurrency = options.maxConcurrency || this.maxConcurrency;
@@ -62,10 +69,14 @@ class ParallelExecutor {
         let completedPages = 0;
         let completedTests = 0;
         const totalTests = urls.length * pageTestTasks.length;
-        // Process pages in parallel batches
-        for (let i = 0; i < urls.length; i += concurrency) {
-            const urlBatch = urls.slice(i, i + concurrency);
-            const pagePromises = urlBatch.map(async (url) => {
+        const urlQueue = [...urls]; // Copy array to avoid mutation
+        const runningPromises = [];
+        // Worker function that processes URLs from the queue
+        const worker = async () => {
+            while (urlQueue.length > 0) {
+                const url = urlQueue.shift();
+                if (!url)
+                    break;
                 const page = await this.browser.newPage();
                 try {
                     console.log(chalk_1.default.gray(`   📄 Testing ${url}`));
@@ -134,9 +145,15 @@ class ParallelExecutor {
                 finally {
                     await page.close();
                 }
-            });
-            await Promise.all(pagePromises);
+            }
+        };
+        // Start worker pool with maximum concurrency
+        const workerCount = Math.min(concurrency, urls.length);
+        for (let i = 0; i < workerCount; i++) {
+            runningPromises.push(worker());
         }
+        // Wait for all workers to complete
+        await Promise.all(runningPromises);
         return pageResults;
     }
     /**
@@ -245,19 +262,44 @@ class ParallelExecutor {
         return `Page: ${pageResult.url}\nTests completed: ${totalTests}\nSuccessful: ${successCount}\nFailed: ${failCount}`;
     }
     /**
-     * Batch processing utility for large datasets
+     * Parallel processing utility for large datasets using worker pool pattern
      */
-    async processBatches(items, processor, batchSize = this.maxConcurrency, onBatchComplete) {
+    async processBatches(items, processor, maxConcurrency = this.maxConcurrency, onItemComplete) {
         const results = [];
-        const totalBatches = Math.ceil(items.length / batchSize);
-        for (let i = 0; i < items.length; i += batchSize) {
-            const batch = items.slice(i, i + batchSize);
-            const batchResults = await processor(batch);
-            results.push(...batchResults);
-            if (onBatchComplete) {
-                onBatchComplete(Math.floor(i / batchSize) + 1, totalBatches);
+        const itemQueue = [...items]; // Copy array to avoid mutation
+        const runningPromises = [];
+        let completedItems = 0;
+        // Worker function that processes items from the queue
+        const worker = async () => {
+            while (itemQueue.length > 0) {
+                const item = itemQueue.shift();
+                if (!item)
+                    break;
+                try {
+                    const result = await processor(item);
+                    results.push(result);
+                    completedItems++;
+                    if (onItemComplete) {
+                        onItemComplete(completedItems, items.length);
+                    }
+                }
+                catch (error) {
+                    // Note: You might want to handle errors differently based on requirements
+                    completedItems++;
+                    if (onItemComplete) {
+                        onItemComplete(completedItems, items.length);
+                    }
+                    throw error; // Re-throw to maintain error handling behavior
+                }
             }
+        };
+        // Start worker pool with maximum concurrency
+        const workerCount = Math.min(maxConcurrency, items.length);
+        for (let i = 0; i < workerCount; i++) {
+            runningPromises.push(worker());
         }
+        // Wait for all workers to complete
+        await Promise.all(runningPromises);
         return results;
     }
 }
