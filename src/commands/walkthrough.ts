@@ -1,7 +1,7 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '../types/index.js';
-import { validateUrl } from '../utils/validation.js';
+import { validateUrl, resolveUrlByProbing } from '../utils/validation.js';
 import { TestOrchestrator } from '../orchestrator/test-orchestrator.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
 
@@ -70,7 +70,13 @@ export async function runWalkthrough(): Promise<void> {
     }
   ]);
 
-  console.log(chalk.green(`✅ URL set to: ${url}\n`));
+  const resolvedUrl = await resolveUrlByProbing(url);
+  console.log(chalk.green(`✅ URL set to: ${url}`));
+  if (resolvedUrl !== url) {
+    console.log(chalk.yellow(`🔎 Resolved to: ${resolvedUrl}\n`));
+  } else {
+    console.log();
+  }
 
   // Step 2: Ask about site crawling
   const { crawlSite } = await inquirer.prompt([
@@ -78,7 +84,7 @@ export async function runWalkthrough(): Promise<void> {
       type: 'confirm',
       name: 'crawlSite',
       message: 'Would you like to crawl the entire site and test all pages?',
-      default: false
+      default: true
     }
   ]);
 
@@ -120,7 +126,7 @@ export async function runWalkthrough(): Promise<void> {
 
   // Step 5: Confirmation
   await showConfirmation({
-    url,
+    url: resolvedUrl,
     crawlSite,
     selectedTests,
     viewports: VIEWPORTS,
