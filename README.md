@@ -1,6 +1,6 @@
-# Playwright Site Scanner
+# Arda Site Scan
 
-A standalone CLI tool for running comprehensive Playwright tests against any website without requiring project integration.
+A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright. Test any website without requiring project integration.
 
 ## Features
 
@@ -14,8 +14,20 @@ A standalone CLI tool for running comprehensive Playwright tests against any web
 
 ## Installation
 
+### Global Installation (Recommended)
+
 ```bash
-# Clone and setup
+# Install the package globally
+npm install -g arda-site-scan
+
+# Install Playwright browser binaries (required)
+npx playwright install
+```
+
+### Local Development Setup
+
+```bash
+# Clone and setup for development
 git clone <repository-url>
 cd playwright-site-scanner
 npm install
@@ -29,6 +41,10 @@ npm run build
 Simply run the CLI without arguments to start the interactive walkthrough:
 
 ```bash
+# Global installation
+arda-site-scan
+
+# Local development
 npm start
 # or
 node dist/cli.js
@@ -45,6 +61,10 @@ The interactive mode will guide you through:
 Start the interactive walkthrough explicitly:
 
 ```bash
+# Global installation
+arda-site-scan start
+
+# Local development
 npm start
 # or
 node dist/cli.js start
@@ -78,7 +98,7 @@ node dist/cli.js start
 Results are organized in timestamped session folders:
 
 ```
-playwright-site-scanner-sessions/
+arda-site-scan-sessions/
 ├── 07-24-2025_14-30/
 │   ├── session-summary.md
 │   ├── index/
@@ -99,7 +119,8 @@ playwright-site-scanner-sessions/
 ## Requirements
 
 - Node.js 18.0.0 or higher
-- Internet connection for downloading Playwright browsers (automatically handled)
+- Playwright browser binaries (install with `npx playwright install`)
+- Internet connection for axe-core CDN access during accessibility testing
 
 ## Development
 
@@ -146,8 +167,21 @@ ISC License - see package.json for details
 ### Common Issues
 
 **Browser Download Fails**
+
+If you're having issues with browser binaries, ensure they're installed:
 ```bash
 npx playwright install
+```
+
+**Command Not Found (arda-site-scan)**
+
+If the global command isn't working after installation:
+```bash
+# Reinstall globally
+npm install -g arda-site-scan
+
+# Or use npx to run without global install
+npx arda-site-scan
 ```
 
 **Permission Errors on Windows**

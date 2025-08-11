@@ -1,31 +1,51 @@
 {
-  "name": "playwright-site-scanner",
+  "name": "arda-site-scan",
   "version": "1.0.0",
-  "description": "A standalone CLI tool for running Playwright tests against any website",
-  "main": "dist/index.js",
+  "description": "A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright",
+  "main": "dist/cli.js",
   "bin": {
-    "playwright-site-scanner": "./dist/cli.js"
+    "arda-site-scan": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli.js",
     "dev": "npm run build && npm start",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
+    "arda",
     "playwright",
     "testing",
     "cli",
     "website",
     "scanner",
-    "automation"
+    "automation",
+    "seo",
+    "accessibility",
+    "screenshots",
+    "web-testing"
   ],
   "author": "Alec",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "CLAUDE.md",
+    "package.json"
+  ],
+  "homepage": "https://github.com/areimel/playwright-site-scanner#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/areimel/playwright-site-scanner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/areimel/playwright-site-scanner/issues"
   },
   "dependencies": {
     "chalk": "^5.4.1",

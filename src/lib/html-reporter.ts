@@ -16,7 +16,7 @@ export class HTMLReporter {
   constructor(config: ReporterConfig, sessionId: string) {
     this.config = config;
     // Default output path within session directory
-    this.outputDir = config.outputPath || path.join('playwright-site-scanner-sessions', sessionId, 'html-report');
+    this.outputDir = config.outputPath || path.join('arda-site-scan-sessions', sessionId, 'html-report');
   }
 
   async generateReport(data: HTMLReportData): Promise<string> {

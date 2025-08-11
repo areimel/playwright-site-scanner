@@ -18,7 +18,7 @@ import { TestResult } from '../types/index.js';
 export class StandardTestOutputHandler implements TestOutputHandler {
   private outputDir: string;
 
-  constructor(outputDir: string = 'playwright-site-scanner-sessions') {
+  constructor(outputDir: string = 'arda-site-scan-sessions') {
     this.outputDir = outputDir;
   }
 
