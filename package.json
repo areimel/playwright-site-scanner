@@ -4,7 +4,7 @@
   "description": "A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright",
   "main": "dist/cli.js",
   "bin": {
-    "arda-site-scan": "./dist/cli.js"
+    "arda-site-scan": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

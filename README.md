@@ -1,4 +1,4 @@
-# Arda Site Scan
+# ARDA Site Scan
 
 A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright. Test any website without requiring project integration.
 
