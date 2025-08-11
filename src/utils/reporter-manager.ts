@@ -229,7 +229,7 @@ export class ReporterManager {
   // Get report metadata for display in session summary
   getReportMetadata(): { type: string; outputDir: string; features: string[] } {
     const outputDir = this.config.outputPath || 
-      path.join('playwright-site-scanner-sessions', this.sessionId, 'html-report');
+      path.join('arda-site-scan-sessions', this.sessionId, 'html-report');
     
     const features: string[] = [];
     if (this.config.includeScreenshots) features.push('Screenshots');

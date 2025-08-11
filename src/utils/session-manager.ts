@@ -6,7 +6,7 @@ import { StandardTestOutputHandler } from './test-output-handler.js';
 import { OUTPUT_CONFIGURATIONS, OutputContext } from '../types/test-output-types.js';
 
 export class SessionManager {
-  private readonly outputDir = 'playwright-site-scanner-sessions';
+  private readonly outputDir = 'arda-site-scan-sessions';
   private outputHandler: StandardTestOutputHandler;
 
   constructor() {

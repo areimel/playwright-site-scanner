@@ -10,7 +10,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:crawlee.dev)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run clean:*)",
+      "Bash(arda-site-scan:*)"
     ],
     "deny": []
   }

@@ -8,8 +8,8 @@ import { runWalkthrough } from './commands/walkthrough.js';
 const program = new Command();
 
 program
-  .name('playwright-site-scanner')
-  .description('Automated website testing with Playwright')
+  .name('arda-site-scan')
+  .description('Comprehensive website analysis with Playwright')
   .version('1.0.0');
 
 program

@@ -24,8 +24,8 @@ export const getWelcomeScreen = (): string => {
 
 export const getBanner = (): string => {
   return chalk.hex('#FF8800')(`
-  Welcome to ARDA Site Scanner!
-  Your automated website testing console.
+  Welcome to Arda Site Scan!
+  Comprehensive website analysis with Playwright.
   
   Built by: Alec Reimel, Advanced Research & Development Agency
   Find more tools at: https://advancedresearch.dev

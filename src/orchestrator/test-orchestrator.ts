@@ -509,7 +509,7 @@ export class TestOrchestrator {
     }
     console.log(chalk.white(`⏱️  Duration: ${duration}s`));
     console.log(chalk.cyan('═'.repeat(50)));
-    console.log(chalk.blue(`📁 Results saved to: playwright-site-scanner-sessions/${summary.sessionId}/`));
+    console.log(chalk.blue(`📁 Results saved to: arda-site-scan-sessions/${summary.sessionId}/`));
   }
 
   private async generateHTMLReports(sessionSummary: SessionSummary): Promise<void> {
