@@ -84,7 +84,7 @@ export async function runWalkthrough(): Promise<void> {
       type: 'confirm',
       name: 'crawlSite',
       message: 'Would you like to crawl the entire site and test all pages?',
-      default: false
+      default: true
     }
   ]);
 
