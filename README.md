@@ -32,6 +32,11 @@ A standalone CLI tool for comprehensive website analysis including screenshots, 
 📊 **Progress Tracking** - Real-time progress display and queue management  
 📁 **Organized Results** - Timestamped sessions with structured output  
 
+## Links
+NPM: https://www.npmjs.com/package/arda-site-scan
+Github: https://github.com/areimel/playwright-site-scanner
+Landing Page: COMING SOON
+
 ## Installation
 
 ### Global Installation (Recommended)

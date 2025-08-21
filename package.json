@@ -1,6 +1,6 @@
 {
   "name": "arda-site-scan",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright",
   "main": "dist/cli.js",
   "bin": {
