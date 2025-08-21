@@ -12,7 +12,8 @@
       "WebFetch(domain:crawlee.dev)",
       "Bash(node:*)",
       "Bash(npm run clean:*)",
-      "Bash(arda-site-scan:*)"
+      "Bash(arda-site-scan:*)",
+      "WebSearch"
     ],
     "deny": []
   }
