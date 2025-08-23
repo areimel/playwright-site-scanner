@@ -49,25 +49,14 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     outputType: 'site-wide'
   },
 
+  // Phase 2: Unified Page Analysis & Testing
   'content-scraping': {
     testId: 'content-scraping',
-    phase: 1,
-    scope: 'page',
-    executionOrder: 3,
-    dependencies: ['site-crawling'],
-    conflictsWith: [],
-    resourceIntensive: true,
-    outputType: 'per-page'
-  },
-
-  // Phase 2: Page Analysis & Testing
-  'screenshots': {
-    testId: 'screenshots',
     phase: 2,
     scope: 'page',
     executionOrder: 1,
-    dependencies: [],
-    conflictsWith: ['accessibility'], // Both modify viewport
+    dependencies: ['site-crawling'],
+    conflictsWith: [],
     resourceIntensive: true,
     outputType: 'per-page'
   },
@@ -90,6 +79,17 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     executionOrder: 3,
     dependencies: [],
     conflictsWith: ['screenshots'], // Both modify viewport
+    resourceIntensive: true,
+    outputType: 'per-page'
+  },
+
+  'screenshots': {
+    testId: 'screenshots',
+    phase: 2,
+    scope: 'page',
+    executionOrder: 4,
+    dependencies: [],
+    conflictsWith: ['accessibility'], // Both modify viewport
     resourceIntensive: true,
     outputType: 'per-page'
   },
@@ -122,8 +122,8 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
 export const PHASE_DEFINITIONS: Record<TestPhase, PhaseDefinition> = {
   1: {
     phase: 1,
-    name: 'Data Discovery',
-    description: 'Site crawling, content extraction, and initial data collection',
+    name: 'Site Discovery',
+    description: 'Site crawling and sitemap generation (session-level operations)',
     scope: 'session',
     dependencies: [],
     parallelizable: true
@@ -131,8 +131,8 @@ export const PHASE_DEFINITIONS: Record<TestPhase, PhaseDefinition> = {
   
   2: {
     phase: 2,
-    name: 'Page Analysis',
-    description: 'Screenshots, SEO scans, accessibility testing across all pages',
+    name: 'Unified Page Analysis',
+    description: 'Content scraping, SEO, accessibility, and screenshot testing in single page sessions',
     scope: 'page',
     dependencies: [1],
     parallelizable: true

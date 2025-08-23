@@ -177,133 +177,217 @@ export class TestOrchestrator {
       }
     }
 
-    // Step 3: Content scraping for all pages in parallel
-    if (phase1Plan.pageTests.includes('content-scraping')) {
-      console.log(chalk.gray(`   📄 Scraping content from ${urls.length} pages...`));
-      
-      const scrapingTasks = urls.map(url => ({
-        id: `content-${url}`,
-        name: `Content scraping (${new URL(url).pathname})`,
-        execute: async () => {
-          const page = await this.browser!.newPage();
-          try {
-            await page.goto(url, { waitUntil: 'networkidle' });
-            const result = await this.contentScraper.scrapePageContentToStore(page, url, this.dataManager!);
-            return result;
-          } finally {
-            await page.close();
-          }
-        }
-      }));
-
-      const scrapingResults = await this.parallelExecutor!.executeTasks(scrapingTasks, {
-        description: 'content scraping',
-        maxConcurrency: phase1Plan.maxConcurrency
-      });
-      
-      // Collect content scraping results
-      scrapingResults.successful.forEach(result => {
-        this.allTestResults.push(result.result as TestResult);
-      });
-    }
+    // Note: Content scraping is now handled in Phase 2 for unified page processing
+    // No page-level tests in Phase 1 anymore
 
     this.dataManager!.markPhaseComplete(1);
     console.log(chalk.green('   ✅ Phase 1 completed\n'));
   }
 
   /**
-   * Phase 2: Page Analysis & Testing
-   * - Screenshots across all viewports
-   * - SEO scans
-   * - Accessibility testing
+   * Process a single page with all enabled tests using hybrid parallel execution
+   * Reduces page loads from N×T to N (where N=pages, T=tests)
+   * Runs compatible tests in parallel within each page session
+   */
+  private async processPageCompletely(
+    url: string, 
+    enabledTests: string[], 
+    config: TestConfig
+  ): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+    let page: Page | null = null;
+
+    try {
+      console.log(chalk.gray(`    🌐 Loading page: ${new URL(url).pathname}`));
+      page = await this.browser!.newPage();
+      await page.goto(url, { waitUntil: 'networkidle' });
+
+      // Group tests by compatibility for optimal parallel execution
+      const testGroups = this.getParallelTestGroups(enabledTests);
+
+      // Group 1: Run non-conflicting tests in parallel
+      if (testGroups.nonConflicting.length > 0) {
+        console.log(chalk.gray(`      🔄 Running ${testGroups.nonConflicting.length} tests in parallel...`));
+        
+        const parallelTestPromises = testGroups.nonConflicting.map(async (testType) => {
+          try {
+            switch (testType) {
+              case 'content-scraping':
+                console.log(chalk.gray(`      📄 Content scraping...`));
+                return await this.contentScraper.scrapePageContentToStore(page!, url, this.dataManager!);
+
+              case 'seo':
+                console.log(chalk.gray(`      🔍 SEO analysis...`));
+                return await this.seoTester.runSEOScan(page!, url, this.dataManager!.sessionId);
+
+              case 'api-key-scan':
+                console.log(chalk.gray(`      🔐 API key scan...`));
+                return await this.apiKeyTester.runApiKeyScan(page!, url, this.dataManager!.sessionId);
+
+              default:
+                throw new Error(`Unknown non-conflicting test type: ${testType}`);
+            }
+          } catch (error) {
+            console.error(chalk.red(`      ❌ ${testType} failed: ${error}`));
+            return {
+              testType,
+              status: 'failed' as const,
+              startTime: new Date(),
+              endTime: new Date(),
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        });
+
+        const parallelResults = await Promise.all(parallelTestPromises);
+        results.push(...parallelResults);
+      }
+
+      // Group 2: Run accessibility test (viewport sensitive)
+      if (testGroups.accessibility.length > 0) {
+        try {
+          console.log(chalk.gray(`      ♿ Accessibility scan...`));
+          const accessibilityResult = await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager!.sessionId);
+          results.push(accessibilityResult);
+        } catch (error) {
+          console.error(chalk.red(`      ❌ accessibility failed: ${error}`));
+          results.push({
+            testType: 'accessibility',
+            status: 'failed' as const,
+            startTime: new Date(),
+            endTime: new Date(),
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+
+      // Group 3: Run screenshot tests with parallel viewport processing
+      if (testGroups.screenshots.length > 0) {
+        console.log(chalk.gray(`      📸 Screenshots across ${config.viewports.length} viewports in parallel...`));
+        
+        const screenshotPromises = config.viewports.map(async (viewport) => {
+          try {
+            console.log(chalk.gray(`      📸 Screenshot ${viewport.name} (${viewport.width}x${viewport.height})...`));
+            await page!.setViewportSize({ width: viewport.width, height: viewport.height });
+            await page!.waitForTimeout(500); // Allow re-render
+            return await this.screenshotTester.captureScreenshot(page!, url, viewport, this.dataManager!.sessionId);
+          } catch (error) {
+            console.error(chalk.red(`      ❌ Screenshot ${viewport.name} failed: ${error}`));
+            return {
+              testType: `screenshots-${viewport.name}`,
+              status: 'failed' as const,
+              startTime: new Date(),
+              endTime: new Date(),
+              error: error instanceof Error ? error.message : String(error)
+            };
+          }
+        });
+
+        const screenshotResults = await Promise.all(screenshotPromises);
+        results.push(...screenshotResults);
+      }
+
+      const totalTests = results.length;
+      const successfulTests = results.filter(r => r.status === 'success').length;
+      console.log(chalk.green(`    ✅ Completed ${totalTests} tests for ${new URL(url).pathname} (${successfulTests} successful)`));
+      return results;
+
+    } catch (error) {
+      console.error(chalk.red(`    ❌ Page loading failed for ${url}: ${error}`));
+      // Return failed results for all enabled tests
+      return enabledTests.map(testType => ({
+        testType,
+        status: 'failed' as const,
+        startTime: new Date(),
+        endTime: new Date(),
+        error: `Page load failed: ${error instanceof Error ? error.message : String(error)}`
+      }));
+
+    } finally {
+      if (page) {
+        await page.close();
+      }
+    }
+  }
+
+  /**
+   * Group tests by compatibility for parallel execution
+   * Returns tests grouped by their ability to run simultaneously
+   */
+  private getParallelTestGroups(enabledTests: string[]): {
+    nonConflicting: string[];
+    accessibility: string[];
+    screenshots: string[];
+  } {
+    // Tests that don't modify DOM or viewport and can run in parallel
+    const nonConflictingTests = ['content-scraping', 'seo', 'api-key-scan'];
+    
+    // Tests that modify viewport or inject scripts (must run separately)
+    const conflictingTests = ['accessibility', 'screenshots'];
+    
+    return {
+      nonConflicting: enabledTests.filter(test => nonConflictingTests.includes(test)),
+      accessibility: enabledTests.filter(test => test === 'accessibility'),
+      screenshots: enabledTests.filter(test => test === 'screenshots')
+    };
+  }
+
+  /**
+   * Phase 2: Unified Page Analysis & Testing
+   * - Content scraping, SEO, accessibility, and screenshots in single page sessions
    */
   private async executePhase2(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
     const phase2Plan = strategy.phases.find(p => p.phase === 2);
     if (!phase2Plan || (phase2Plan.pageTests.length === 0 && phase2Plan.sessionTests.length === 0)) return;
 
-    console.log(chalk.blue('\n🔬 Phase 2: Page Analysis & Testing'));
+    console.log(chalk.blue('\n🔬 Phase 2: Unified Page Analysis & Testing'));
     
     const urls = this.dataManager!.getUrls();
     const pageTests = phase2Plan.pageTests;
     const sessionTests = phase2Plan.sessionTests;
     
+    console.log(chalk.gray(`   🌐 Processing ${urls.length} pages with ${pageTests.length} test types each...`));
+    console.log(chalk.gray(`   🎯 Unified approach: 1 page load per URL (instead of ${pageTests.length})`));
+
+    // Create page-centric tasks - one task per URL that runs all tests
     if (pageTests.length > 0) {
-      console.log(chalk.gray(`   🎯 Running ${pageTests.length} page test types on ${urls.length} pages...`));
-    }
-    if (sessionTests.length > 0) {
-      console.log(chalk.gray(`   🔐 Running ${sessionTests.length} session test types...`));
-    }
-
-    // Create all page test tasks
-    const allPageTasks: any[] = [];
-    
-    for (const url of urls) {
-      for (const testType of pageTests) {
-        if (testType === 'screenshots') {
-          // Create separate tasks for each viewport
-          for (const viewport of config.viewports) {
-            allPageTasks.push({
-              id: `${testType}-${viewport.name}-${url}`,
-              name: `Screenshot ${viewport.name} (${new URL(url).pathname})`,
-              execute: async () => {
-                const page = await this.browser!.newPage();
-                try {
-                  await page.goto(url, { waitUntil: 'networkidle' });
-                  await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                  return await this.screenshotTester.captureScreenshot(page, url, viewport, this.dataManager!.sessionId);
-                } finally {
-                  await page.close();
-                }
-              }
-            });
-          }
-        } else {
-          allPageTasks.push({
-            id: `${testType}-${url}`,
-            name: `${this.getTestName(testType)} (${new URL(url).pathname})`,
-            execute: async () => {
-              const page = await this.browser!.newPage();
-              try {
-                await page.goto(url, { waitUntil: 'networkidle' });
-                
-                switch (testType) {
-                  case 'seo':
-                    return await this.seoTester.runSEOScan(page, url, this.dataManager!.sessionId);
-                  case 'accessibility':
-                    return await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager!.sessionId);
-                  case 'api-key-scan':
-                    return await this.apiKeyTester.runApiKeyScan(page, url, this.dataManager!.sessionId);
-                  default:
-                    throw new Error(`Unknown page test: ${testType}`);
-                }
-              } finally {
-                await page.close();
-              }
-            }
-          });
+      const unifiedPageTasks = urls.map(url => ({
+        id: `unified-page-${url}`,
+        name: `All tests for ${new URL(url).pathname}`,
+        execute: async () => {
+          return await this.processPageCompletely(url, pageTests, config);
         }
-      }
-    }
+      }));
 
-    // Execute all page tests in parallel
-    if (allPageTasks.length > 0) {
-      const phase2Results = await this.parallelExecutor!.executeTasks(allPageTasks, {
-        description: 'page analysis tests',
-        maxConcurrency: phase2Plan.maxConcurrency,
+      console.log(chalk.gray(`   🚀 Executing ${unifiedPageTasks.length} unified page sessions...`));
+      
+      const unifiedResults = await this.parallelExecutor!.executeTasks(unifiedPageTasks, {
+        description: 'unified page analysis',
+        maxConcurrency: Math.min(phase2Plan.maxConcurrency, 3), // Slightly lower concurrency for page sessions
         onProgress: (completed, total) => {
-          console.log(chalk.gray(`      Progress: ${completed}/${total} tests completed`));
+          console.log(chalk.gray(`      Progress: ${completed}/${total} pages completed`));
         }
       });
       
-      // Collect page test results
-      phase2Results.successful.forEach(result => {
-        this.allTestResults.push(result.result as TestResult);
+      // Collect all test results from unified page processing
+      unifiedResults.successful.forEach(taskResult => {
+        const pageResults = taskResult.result as TestResult[];
+        pageResults.forEach(result => {
+          this.allTestResults.push(result);
+        });
+      });
+
+      // Handle any failed page tasks
+      unifiedResults.failed.forEach(taskResult => {
+        console.error(chalk.red(`   ❌ Failed to process page: ${taskResult.error}`));
+        // Add error to session manager
+        this.dataManager!.addError(`page-processing-${taskResult.id}`, taskResult.error);
       });
     }
 
-    // Execute session-level tests
+    // Execute session-level tests (like final API key report)
     if (sessionTests.length > 0) {
-      console.log(chalk.gray(`   🔐 Processing session-level tests...`));
+      console.log(chalk.gray(`   🔐 Processing ${sessionTests.length} session-level tests...`));
       
       const sessionTasks = sessionTests.map(testId => ({
         id: testId,
@@ -330,7 +414,17 @@ export class TestOrchestrator {
     }
 
     this.dataManager!.markPhaseComplete(2);
-    console.log(chalk.green('   ✅ Phase 2 completed\n'));
+    
+    // Calculate performance improvement summary
+    const totalTests = this.allTestResults.filter(r => r.testType !== 'site-crawling' && r.testType !== 'sitemap').length;
+    const estimatedOldPageLoads = urls.length * pageTests.length;
+    const actualPageLoads = urls.length;
+    const reductionPercentage = ((estimatedOldPageLoads - actualPageLoads) / estimatedOldPageLoads * 100).toFixed(0);
+    
+    console.log(chalk.green('   ✅ Phase 2 completed'));
+    console.log(chalk.green(`   📊 Performance: ${actualPageLoads} page loads (vs ${estimatedOldPageLoads} in old approach)`));
+    console.log(chalk.green(`   🚀 Network efficiency: ${reductionPercentage}% reduction in page loads`));
+    console.log(chalk.green(`   ⚡ Parallel execution: Tests within each page run concurrently\n`));
   }
 
   /**
