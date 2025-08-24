@@ -619,23 +619,14 @@ if (window.reportConfig && window.reportConfig.openBehavior === 'always') {
       for (const test of screenshotTests) {
         if (test.outputPath && test.status === 'success') {
           try {
-            // Only copy files that actually exist and are from the current session
             const sourcePath = test.outputPath;
-            
-            // Verify source file exists before copying
-            try {
-              await fs.access(sourcePath);
-            } catch (error) {
-              console.warn(`Source screenshot not found: ${sourcePath}`);
-              continue;
-            }
-            
             const filename = path.basename(sourcePath);
             const destPath = path.join(screenshotsDir, filename);
             
             await fs.copyFile(sourcePath, destPath);
           } catch (error) {
-            console.warn(`Failed to copy screenshot: ${error}`);
+            // Silently continue if file copy fails
+            continue;
           }
         }
       }

@@ -16,7 +16,8 @@
       "WebSearch",
       "Bash(npm start)",
       "Bash(grep:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "WebFetch(domain:playwright.dev)"
     ],
     "deny": []
   }
