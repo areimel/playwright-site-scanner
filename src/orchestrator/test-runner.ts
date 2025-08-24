@@ -347,25 +347,29 @@ export class TestRunner {
         }
       }
 
-      // Group 3: Run screenshot tests with parallel viewport processing
+      // Group 3: Run screenshot tests with parallel viewport processing using separate page contexts
       if (testGroups.screenshots.length > 0) {
         this.uiStyler.displayTestProgress(`📸 Screenshots across ${config.viewports.length} viewports in parallel`);
         
-        const screenshotPromises = config.viewports.map(async (viewport) => {
-          try {
-            this.uiStyler.displayTestProgress('📸 Screenshot', `${viewport.name} (${viewport.width}x${viewport.height})`);
-            await page!.setViewportSize({ width: viewport.width, height: viewport.height });
-            await page!.waitForTimeout(500); // Allow re-render
-            return await this.screenshotTester.captureScreenshot(page!, url, viewport, this.dataManager.sessionId);
-          } catch (error) {
-            this.errorHandler.captureError(error, `screenshot ${viewport.name}`);
-            this.errorHandler.logScreenshotError(viewport.name, error);
-            return this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error);
-          }
-        });
-
-        const screenshotResults = await Promise.all(screenshotPromises);
-        results.push(...screenshotResults);
+        try {
+          // Use ParallelExecutor's executeScreenshotTests to avoid viewport conflicts
+          const screenshotResults = await this.parallelExecutor.executeScreenshotTests(
+            page!, 
+            url, 
+            config.viewports, 
+            this.dataManager.sessionId, 
+            this.screenshotTester
+          );
+          results.push(...screenshotResults);
+        } catch (error) {
+          this.errorHandler.captureError(error, 'screenshot tests');
+          this.errorHandler.logScreenshotError('all viewports', error);
+          // Create failed results for all viewports
+          const failedResults = config.viewports.map(viewport => 
+            this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
+          );
+          results.push(...failedResults);
+        }
       }
 
       const totalTests = results.length;

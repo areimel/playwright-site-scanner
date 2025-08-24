@@ -2,11 +2,13 @@ import { SessionSummary, PageResult, TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
+import { DirectoryScanner } from '../utils/directory-scanner.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
 
 export class ResultsManager {
   private sessionManager: SessionManager;
+  private directoryScanner: DirectoryScanner;
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
 
@@ -16,6 +18,7 @@ export class ResultsManager {
     uiStyler?: UIStyler
   ) {
     this.sessionManager = sessionManager;
+    this.directoryScanner = new DirectoryScanner();
     this.errorHandler = errorHandler || new ErrorHandler();
     this.uiStyler = uiStyler || new UIStyler();
   }
@@ -43,12 +46,10 @@ export class ResultsManager {
       const metrics = dataManager.getPageMetrics(url);
       const content = dataManager.getScrapedContent(url);
       
-      // Find per-page tests that ran for this specific page using the new output type system
-      const pageTests = this.sessionManager.filterTestResultsByOutputType(allTestResults, 'per-page')
-        .filter(result => {
-          // Check if this test result is for this page
-          return result.outputPath?.includes(this.sessionManager.getPageName(url));
-        });
+      // Since we trust our simple path system, just filter results by output path containing the page
+      const pageTests = allTestResults.filter(result => 
+        result.outputPath && result.outputPath.includes(`/${this.sessionManager.getPageName(url)}/`)
+      );
       
       const pageResult: PageResult = {
         url,
@@ -62,7 +63,12 @@ export class ResultsManager {
 
     // Add site-wide tests to the first page result (or create a separate section)
     if (pageResults.length > 0) {
-      const sessionTests = this.sessionManager.filterTestResultsByOutputType(allTestResults, 'site-wide');
+      // Site-wide tests are in the session root (no page subdirectory) - include sitemap, site-summary, etc.
+      const sessionTests = allTestResults.filter(result => 
+        result.outputPath && 
+        result.outputPath.includes(dataManager.sessionId) && 
+        !urls.some(pageUrl => result.outputPath!.includes(`/${this.sessionManager.getPageName(pageUrl)}/`))
+      );
       
       if (sessionTests.length > 0) {
         // Add session tests to first page or create a summary entry
@@ -74,7 +80,7 @@ export class ResultsManager {
   }
 
   /**
-   * Generate HTML reports if configured
+   * Generate HTML reports if configured - using DirectoryScanner for reliable data
    */
   async generateHTMLReports(
     sessionSummary: SessionSummary, 
@@ -90,10 +96,11 @@ export class ResultsManager {
       // Update reporter open behavior based on test results
       reporterManager.updateOpenBehaviorBasedOnResults(sessionSummary);
 
-      // Generate page results from stored data and organize by URL
-      const pageResults: PageResult[] = this.createPageResults(allTestResults, dataManager);
+      // Use DirectoryScanner to get ACTUAL files from session directory
+      // This eliminates all cross-session contamination issues
+      const pageResults = await this.directoryScanner.scanSession(sessionSummary.sessionId);
 
-      // Generate reports
+      // Generate reports using real file data
       const reportResult = await reporterManager.generateReports(sessionSummary, pageResults);
       
       if (reportResult.success && reportResult.reportPaths.length > 0) {
@@ -119,12 +126,10 @@ export class ResultsManager {
       const metrics = dataManager.getPageMetrics(url);
       const content = dataManager.getScrapedContent(url);
       
-      // Find per-page tests that ran for this specific page using the new output type system
-      const pageTests = this.sessionManager.filterTestResultsByOutputType(allTestResults, 'per-page')
-        .filter(result => {
-          // Check if this test result is for this page
-          return result.outputPath?.includes(this.sessionManager.getPageName(url));
-        });
+      // Since we trust our simple path system, just filter results by output path containing the page
+      const pageTests = allTestResults.filter(result => 
+        result.outputPath && result.outputPath.includes(`/${this.sessionManager.getPageName(url)}/`)
+      );
       
       const pageResult: PageResult = {
         url,
@@ -138,7 +143,12 @@ export class ResultsManager {
 
     // Add site-wide tests to the first page result
     if (pageResults.length > 0) {
-      const sessionTests = this.sessionManager.filterTestResultsByOutputType(allTestResults, 'site-wide');
+      // Site-wide tests are in the session root (no page subdirectory) - include sitemap, site-summary, etc.
+      const sessionTests = allTestResults.filter(result => 
+        result.outputPath && 
+        result.outputPath.includes(dataManager.sessionId) && 
+        !urls.some(pageUrl => result.outputPath!.includes(`/${this.sessionManager.getPageName(pageUrl)}/`))
+      );
       
       if (sessionTests.length > 0) {
         pageResults[0].tests.push(...sessionTests);
@@ -149,12 +159,12 @@ export class ResultsManager {
   }
 
   /**
-   * Filter test results for a specific page
+   * Simple page filtering - relies on canonical path structure
    */
   filterTestResultsByPage(allTestResults: TestResult[], url: string): TestResult[] {
     const pageName = this.sessionManager.getPageName(url);
     return allTestResults.filter(result => {
-      return result.outputPath?.includes(pageName);
+      return result.outputPath?.includes(`/${pageName}/`);
     });
   }
 }

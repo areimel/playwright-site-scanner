@@ -2,15 +2,12 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { SessionSummary, PageResult, TestResult } from '../types/index.js';
 import { sanitizePageName } from './validation.js';
-import { StandardTestOutputHandler } from './test-output-handler.js';
-import { OUTPUT_CONFIGURATIONS, OutputContext } from '../types/test-output-types.js';
 
 export class SessionManager {
   private readonly outputDir = 'arda-site-scan-sessions';
-  private outputHandler: StandardTestOutputHandler;
 
   constructor() {
-    this.outputHandler = new StandardTestOutputHandler(this.outputDir);
+    // Simple, direct approach - no complex handlers needed
   }
 
   createSessionId(): string {
@@ -40,20 +37,44 @@ export class SessionManager {
     return pagePath;
   }
 
+  /**
+   * Generate page name from URL for directory structure
+   * Handles nested URLs like /blog/category/post -> blog-category-post
+   */
   getPageName(url: string): string {
     return sanitizePageName(url);
   }
 
-  getPagePath(sessionId: string, pageName: string): string {
+  /**
+   * Simple, canonical file path builder - the ONLY way to build paths
+   * Structure: arda-site-scan-sessions/{sessionId}/{pageName}/{testType}/{filename}
+   * 
+   * Examples:
+   * - buildFilePath('08-23-2025_21-48', 'projects', 'screenshots', 'projects-desktop.png')
+   * - buildFilePath('08-23-2025_21-48', 'blog-post-1', 'scans', 'blog-post-1-seo-scan.md')
+   * - buildFilePath('08-23-2025_21-48', '', 'sitemap', 'sitemap.xml') // site-wide files
+   */
+  buildFilePath(sessionId: string, pageName: string, testType: string, filename: string): string {
+    if (!pageName || pageName === '') {
+      // Site-wide files go in session root
+      return path.join(this.outputDir, sessionId, filename);
+    }
+    
+    return path.join(this.outputDir, sessionId, pageName, testType, filename);
+  }
+
+  /**
+   * Get directory path for a page (without filename)
+   */
+  getPageDirectoryPath(sessionId: string, pageName: string): string {
     return path.join(this.outputDir, sessionId, pageName);
   }
 
-  getScreenshotPath(sessionId: string, pageName: string, viewportName: string): string {
-    return path.join(this.outputDir, sessionId, pageName, 'screenshots', `${pageName}-${viewportName}.png`);
-  }
-
-  getScanPath(sessionId: string, pageName: string, scanType: string): string {
-    return path.join(this.outputDir, sessionId, pageName, 'scans', `${pageName}-${scanType}.md`);
+  /**
+   * Get session root directory path
+   */
+  getSessionDirectoryPath(sessionId: string): string {
+    return path.join(this.outputDir, sessionId);
   }
 
   async savePageSummary(sessionId: string, pageResult: PageResult): Promise<void> {
@@ -151,91 +172,22 @@ export class SessionManager {
   }
 
   /**
-   * Generate standardized output path for a test using the new output system
+   * Simple helper to create basic test result structure
    */
-  generateOutputPath(
-    sessionId: string,
-    testType: string,
-    context: OutputContext
-  ): string {
-    const config = OUTPUT_CONFIGURATIONS[testType];
-    if (!config) {
-      throw new Error(`No output configuration found for test type: ${testType}`);
-    }
-    
-    return this.outputHandler.generateOutputPath(sessionId, testType, config, context);
-  }
-
-  /**
-   * Save test output using the standardized output handler
-   */
-  async saveTestOutput(
-    content: string | Buffer,
-    sessionId: string,
-    testType: string,
-    context: OutputContext
-  ): Promise<{ success: boolean; outputPath?: string; error?: string }> {
-    const config = OUTPUT_CONFIGURATIONS[testType];
-    if (!config) {
-      return {
-        success: false,
-        error: `No output configuration found for test type: ${testType}`
-      };
-    }
-
-    const outputPath = this.generateOutputPath(sessionId, testType, context);
-    const result = await this.outputHandler.saveOutput(content, outputPath, config);
-    
-    return {
-      success: result.success,
-      outputPath: result.outputPath,
-      error: result.error
-    };
-  }
-
-  /**
-   * Get the output handler for direct access when needed
-   */
-  getOutputHandler(): StandardTestOutputHandler {
-    return this.outputHandler;
-  }
-
-  /**
-   * Create a standardized test result using the output system
-   */
-  createStandardTestResult(
-    testType: string,
-    status: 'success' | 'failed' | 'pending' = 'pending',
-    outputPath?: string,
-    error?: string
-  ): TestResult {
-    const config = OUTPUT_CONFIGURATIONS[testType];
-    
+  createTestResult(testType: string): TestResult {
     return {
       testType,
-      status,
-      startTime: new Date(),
-      endTime: status !== 'pending' ? new Date() : undefined,
-      outputPath,
-      outputType: config?.type,
-      error
+      status: 'pending',
+      startTime: new Date()
     };
   }
 
   /**
-   * Filter test results by output type for better organization
+   * Ensure directory exists for a file path
    */
-  filterTestResultsByOutputType(
-    results: TestResult[], 
-    outputType: 'per-page' | 'site-wide'
-  ): TestResult[] {
-    return StandardTestOutputHandler.filterResultsByOutputType(results, outputType);
+  async ensureDirectoryExists(filePath: string): Promise<void> {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
   }
 
-  /**
-   * Group per-page test results by page for organized reporting
-   */
-  groupPerPageResultsByPage(results: TestResult[]): Map<string, TestResult[]> {
-    return StandardTestOutputHandler.groupPerPageResultsByPage(results);
-  }
 }

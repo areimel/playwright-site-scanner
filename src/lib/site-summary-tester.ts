@@ -6,8 +6,6 @@ import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
 import { CrawleeSiteCrawler } from './crawlee-site-crawler.js';
-import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
-import { OutputContext } from '../types/test-output-types.js';
 
 interface PageSummary {
   url: string;
@@ -113,7 +111,7 @@ export class SiteSummaryTester {
    */
   async generateSiteSummaryFromStore(dataManager: SessionDataManager): Promise<TestResult> {
     // Create initial test result using standardized system
-    const testResult = this.sessionManager.createStandardTestResult('site-summary', 'pending');
+    const testResult = this.sessionManager.createTestResult('site-summary');
 
     try {
       console.log(chalk.gray(`    📊 Generating site summary from real content data...`));
@@ -130,24 +128,16 @@ export class SiteSummaryTester {
       // Create summary report markdown
       const summaryMarkdown = this.generateSummaryMarkdown(siteSummary);
 
-      // Prepare output context for the site summary (site-wide test)
-      const context: OutputContext = {
-        additionalData: {
-          pageCount: pageSummaries.length,
-          totalWords: siteSummary.statistics.totalWords,
-          averageWords: siteSummary.statistics.averageWordsPerPage
-        }
-      };
+      // Generate output path using simple canonical method (site-wide file)
+      const filename = 'site-summary.md';
+      const outputPath = this.sessionManager.buildFilePath(dataManager.sessionId, '', '', filename);
       
-      // Save using the standardized output system
-      const saveResult = await this.sessionManager.saveTestOutput(summaryMarkdown, dataManager.sessionId, 'site-summary', context);
+      // Ensure directory exists and save file
+      await this.sessionManager.ensureDirectoryExists(outputPath);
+      await fs.writeFile(outputPath, summaryMarkdown, 'utf8');
       
-      if (saveResult.success) {
-        testResult.status = 'success';
-        testResult.outputPath = saveResult.outputPath;
-      } else {
-        throw new Error(saveResult.error || 'Failed to save site summary report');
-      }
+      testResult.status = 'success';
+      testResult.outputPath = outputPath;
       
       testResult.endTime = new Date();
       

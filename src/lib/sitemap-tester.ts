@@ -5,8 +5,6 @@ import path from 'path';
 import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
 import { CrawleeSiteCrawler } from './crawlee-site-crawler.js';
-import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
-import { OutputContext } from '../types/test-output-types.js';
 
 interface SitemapEntry {
   url: string;
@@ -86,8 +84,8 @@ export class SitemapTester {
     baseUrl: string,
     sessionId: string
   ): Promise<TestResult> {
-    // Create initial test result using standardized system
-    const testResult = this.sessionManager.createStandardTestResult('sitemap', 'pending');
+    // Create initial test result using simple system
+    const testResult = this.sessionManager.createTestResult('sitemap');
 
     try {
       console.log(chalk.gray(`    🗺️  Generating XML sitemap from ${urls.length} pre-crawled URLs...`));
@@ -98,24 +96,16 @@ export class SitemapTester {
       // Create XML sitemap
       const sitemapXml = this.generateSitemapXml(sitemapEntries);
 
-      // Prepare output context for the sitemap (site-wide test)
-      const context: OutputContext = {
-        additionalData: {
-          baseUrl,
-          urlCount: urls.length,
-          entryCount: sitemapEntries.length
-        }
-      };
+      // Generate output path using simple canonical method (site-wide file)
+      const filename = 'sitemap.xml';
+      const outputPath = this.sessionManager.buildFilePath(sessionId, '', '', filename);
       
-      // Save using the standardized output system
-      const saveResult = await this.sessionManager.saveTestOutput(sitemapXml, sessionId, 'sitemap', context);
+      // Ensure directory exists and save file
+      await this.sessionManager.ensureDirectoryExists(outputPath);
+      await fs.writeFile(outputPath, sitemapXml, 'utf8');
       
-      if (saveResult.success) {
-        testResult.status = 'success';
-        testResult.outputPath = saveResult.outputPath;
-      } else {
-        throw new Error(saveResult.error || 'Failed to save sitemap');
-      }
+      testResult.status = 'success';
+      testResult.outputPath = outputPath;
       
       testResult.endTime = new Date();
       

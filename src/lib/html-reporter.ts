@@ -602,6 +602,14 @@ if (window.reportConfig && window.reportConfig.openBehavior === 'always') {
 
   private async copyScreenshots(data: HTMLReportData): Promise<void> {
     const screenshotsDir = path.join(this.outputDir, 'screenshots');
+    
+    // Clean screenshots directory first to prevent cross-session contamination
+    try {
+      await fs.rm(screenshotsDir, { recursive: true, force: true });
+    } catch (error) {
+      // Directory might not exist yet, that's fine
+    }
+    
     await fs.mkdir(screenshotsDir, { recursive: true });
 
     // Copy screenshots from each page result
@@ -611,7 +619,17 @@ if (window.reportConfig && window.reportConfig.openBehavior === 'always') {
       for (const test of screenshotTests) {
         if (test.outputPath && test.status === 'success') {
           try {
+            // Only copy files that actually exist and are from the current session
             const sourcePath = test.outputPath;
+            
+            // Verify source file exists before copying
+            try {
+              await fs.access(sourcePath);
+            } catch (error) {
+              console.warn(`Source screenshot not found: ${sourcePath}`);
+              continue;
+            }
+            
             const filename = path.basename(sourcePath);
             const destPath = path.join(screenshotsDir, filename);
             

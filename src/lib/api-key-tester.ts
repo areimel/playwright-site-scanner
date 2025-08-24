@@ -1,9 +1,8 @@
 import { Page } from 'playwright';
 import chalk from 'chalk';
+import { promises as fs } from 'fs';
 import { TestResult } from '../types/index.js';
 import { SessionManager } from '../utils/session-manager.js';
-import { StandardTestOutputHandler } from '../utils/test-output-handler.js';
-import { OutputContext } from '../types/test-output-types.js';
 
 interface ApiKeyFinding {
   type: string;
@@ -106,10 +105,10 @@ export class ApiKeyTester {
   }
 
   async runApiKeyScan(page: Page, pageUrl: string, sessionId: string): Promise<TestResult> {
-    const pageName = StandardTestOutputHandler.getPageNameFromUrl(pageUrl);
+    const pageName = this.sessionManager.getPageName(pageUrl);
     
-    // Create initial test result using standardized system
-    const testResult = this.sessionManager.createStandardTestResult('api-key-scan', 'pending');
+    // Create initial test result using simple system
+    const testResult = this.sessionManager.createTestResult('api-key-scan');
 
     try {
       console.log(chalk.gray(`    🔐 Scanning for API keys...`));
@@ -143,7 +142,7 @@ export class ApiKeyTester {
   }
 
   async generateFinalReport(sessionId: string, totalUrls: string[]): Promise<TestResult> {
-    const testResult = this.sessionManager.createStandardTestResult('api-key-scan', 'pending');
+    const testResult = this.sessionManager.createTestResult('api-key-scan');
     
     try {
       console.log(chalk.gray(`    📋 Generating API key security report...`));
@@ -158,20 +157,16 @@ export class ApiKeyTester {
       // Generate comprehensive security report
       const report = this.generateApiKeyReport(results, totalUrls);
 
-      // Save using the standardized output system
-      const context: OutputContext = {
-        url: 'site-wide',
-        pageName: 'api-key-security-report'
-      };
-
-      const saveResult = await this.sessionManager.saveTestOutput(report, sessionId, 'api-key-scan', context);
+      // Generate output path using simple canonical method
+      const filename = 'api-key-security-report.md';
+      const outputPath = this.sessionManager.buildFilePath(sessionId, '', 'reports', filename);
       
-      if (saveResult.success) {
-        testResult.status = 'success';
-        testResult.outputPath = saveResult.outputPath;
-      } else {
-        throw new Error(saveResult.error || 'Failed to save API key security report');
-      }
+      // Ensure directory exists and save file
+      await this.sessionManager.ensureDirectoryExists(outputPath);
+      await fs.writeFile(outputPath, report, 'utf8');
+      
+      testResult.status = 'success';
+      testResult.outputPath = outputPath;
       
       testResult.endTime = new Date();
       
