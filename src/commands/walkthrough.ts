@@ -125,12 +125,14 @@ export async function runWalkthrough(): Promise<void> {
   const reporterConfig = await configureReporter();
 
   // Step 5: Confirmation
+  const verboseMode = process.env.VERBOSE === 'true';
   await showConfirmation({
     url: resolvedUrl,
     crawlSite,
     selectedTests,
     viewports: VIEWPORTS,
-    reporter: reporterConfig
+    reporter: reporterConfig,
+    verboseMode
   });
 }
 
@@ -156,6 +158,7 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   console.log(chalk.white(`🕷️  Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
   console.log(chalk.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
   console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
+  console.log(chalk.white(`🔧 Output mode: ${config.verboseMode ? 'Verbose logging' : 'Clean loading screen'}`));
   
   // Display reporter configuration
   if (config.reporter?.enabled) {

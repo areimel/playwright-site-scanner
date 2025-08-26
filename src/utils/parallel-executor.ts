@@ -1,6 +1,7 @@
 import { Browser, Page } from 'playwright';
 import chalk from 'chalk';
 import { TestResult, PageResult, TestConfig } from '../types/index.js';
+import { LoadingScreen } from './loading-screen/index.js';
 
 export interface ParallelTask<T> {
   id: string;
@@ -24,10 +25,18 @@ export interface BatchResult<T> {
 export class ParallelExecutor {
   private browser: Browser;
   private maxConcurrency: number;
+  private loadingScreen: LoadingScreen | null = null;
 
   constructor(browser: Browser, maxConcurrency: number = 5) {
     this.browser = browser;
     this.maxConcurrency = maxConcurrency;
+  }
+
+  /**
+   * Set the loading screen instance for progress updates
+   */
+  setLoadingScreen(loadingScreen: LoadingScreen): void {
+    this.loadingScreen = loadingScreen;
   }
 
   /**
@@ -45,12 +54,20 @@ export class ParallelExecutor {
     const concurrency = options.maxConcurrency || this.maxConcurrency;
     const description = options.description || 'tasks';
     
-    console.log(chalk.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
+    // Use LoadingScreen if available, otherwise fall back to console logging
+    if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+      this.loadingScreen.setProgressLabel(description);
+      this.loadingScreen.updateTaskProgress(0, tasks.length);
+      this.loadingScreen.updateThreadInfo(0, concurrency);
+    } else {
+      console.log(chalk.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
+    }
 
     const successful: { id: string; result: T }[] = [];
     const failed: { id: string; error: string }[] = [];
     const taskQueue = [...tasks]; // Copy array to avoid mutation
     const runningPromises: Promise<void>[] = [];
+    let activeWorkers = 0;
     
     // Worker function that processes tasks from the queue
     const worker = async (): Promise<void> => {
@@ -58,22 +75,48 @@ export class ParallelExecutor {
         const task = taskQueue.shift();
         if (!task) break;
         
+        // Update active worker count
+        activeWorkers++;
+        if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+          this.loadingScreen.updateThreadInfo(activeWorkers, concurrency);
+        }
+        
         try {
           const result = await task.execute();
           successful.push({ id: task.id, result });
           
+          const completedCount = successful.length + failed.length;
+          
+          // Update progress
+          if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+            this.loadingScreen.updateTaskProgress(completedCount, tasks.length);
+          }
+          
           if (options.onProgress) {
-            options.onProgress(successful.length + failed.length, tasks.length);
+            options.onProgress(completedCount, tasks.length);
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           failed.push({ id: task.id, error: errorMessage });
           
-          console.log(chalk.yellow(`   ⚠️  ${task.name} failed: ${errorMessage}`));
+          const completedCount = successful.length + failed.length;
+          
+          // Update progress and log error
+          if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+            this.loadingScreen.updateTaskProgress(completedCount, tasks.length);
+          } else {
+            console.log(chalk.yellow(`   ⚠️  ${task.name} failed: ${errorMessage}`));
+          }
           
           if (options.onProgress) {
-            options.onProgress(successful.length + failed.length, tasks.length);
+            options.onProgress(completedCount, tasks.length);
           }
+        }
+        
+        // Update active worker count
+        activeWorkers--;
+        if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+          this.loadingScreen.updateThreadInfo(activeWorkers, concurrency);
         }
       }
     };
@@ -89,8 +132,13 @@ export class ParallelExecutor {
 
     const duration = Date.now() - startTime;
     
-    console.log(chalk.green(`✅ Completed ${tasks.length} ${description} in ${duration}ms`));
-    console.log(chalk.green(`   Success: ${successful.length}, Failed: ${failed.length}`));
+    // Final status update
+    if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+      this.loadingScreen.updateThreadInfo(0, concurrency);
+    } else {
+      console.log(chalk.green(`✅ Completed ${tasks.length} ${description} in ${duration}ms`));
+      console.log(chalk.green(`   Success: ${successful.length}, Failed: ${failed.length}`));
+    }
 
     return { successful, failed, duration };
   }
@@ -110,7 +158,14 @@ export class ParallelExecutor {
     const concurrency = options.maxConcurrency || this.maxConcurrency;
     const pageResults = new Map<string, PageResult>();
     
-    console.log(chalk.blue(`🌐 Testing ${urls.length} pages with ${pageTestTasks.length} test types`));
+    // Use LoadingScreen if available, otherwise fall back to console logging
+    if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+      this.loadingScreen.setProgressLabel(`page testing`);
+      this.loadingScreen.updateTaskProgress(0, urls.length);
+      this.loadingScreen.updateThreadInfo(0, concurrency);
+    } else {
+      console.log(chalk.blue(`🌐 Testing ${urls.length} pages with ${pageTestTasks.length} test types`));
+    }
     
     let completedPages = 0;
     let completedTests = 0;
@@ -127,7 +182,12 @@ export class ParallelExecutor {
         const page = await this.browser.newPage();
         
         try {
-          console.log(chalk.gray(`   📄 Testing ${url}`));
+          // Update loading screen if available, otherwise log
+          if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+            // Loading screen handles the display
+          } else {
+            console.log(chalk.gray(`   📄 Testing ${url}`));
+          }
           await page.goto(url, { waitUntil: 'networkidle' });
           
           const pageResult: PageResult = {
@@ -174,11 +234,18 @@ export class ParallelExecutor {
           pageResults.set(url, pageResult);
           completedPages++;
           
+          // Update loading screen progress
+          if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+            this.loadingScreen.updateTaskProgress(completedPages, urls.length);
+          }
+          
           if (options.onPageProgress) {
             options.onPageProgress(completedPages, urls.length);
           }
           
-          console.log(chalk.green(`   ✅ Completed testing ${url}`));
+          if (this.loadingScreen && this.loadingScreen.isVerboseMode()) {
+            console.log(chalk.green(`   ✅ Completed testing ${url}`));
+          }
           
         } catch (error) {
           console.error(chalk.red(`   ❌ Error testing ${url}:`), error);

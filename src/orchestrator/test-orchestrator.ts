@@ -4,6 +4,7 @@ import { ProgressTracker } from '../utils/progress-tracker.js';
 import { SessionDataManager } from '../utils/session-data-store.js';
 import { ParallelExecutor } from '../utils/parallel-executor.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
+import { LoadingScreen } from '../utils/loading-screen/index.js';
 import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
@@ -39,6 +40,7 @@ export class TestOrchestrator {
   private dataManager: SessionDataManager | null = null;
   private parallelExecutor: ParallelExecutor | null = null;
   private reporterManager: ReporterManager | null = null;
+  private loadingScreen: LoadingScreen | null = null;
   
   // Track all test results for session summary
   private allTestResults: TestResult[] = [];
@@ -115,6 +117,16 @@ export class TestOrchestrator {
     this.dataManager = new SessionDataManager(config.url, sessionSummary.sessionId);
     this.parallelExecutor = new ParallelExecutor(this.browserManager.getBrowser()!, 5);
     
+    // Initialize loading screen (check for verbose mode environment variable)
+    const verboseMode = process.env.VERBOSE === 'true' || config.verboseMode === true;
+    this.loadingScreen = new LoadingScreen({
+      enableVerboseMode: verboseMode
+    });
+    
+    // Connect LoadingScreen to ParallelExecutor and UIStyler
+    this.parallelExecutor.setLoadingScreen(this.loadingScreen);
+    this.uiStyler.setLoadingScreen(this.loadingScreen);
+    
     // Initialize reporter if configured
     if (config.reporter?.enabled) {
       this.reporterManager = new ReporterManager(config.reporter, sessionSummary.sessionId);
@@ -145,18 +157,30 @@ export class TestOrchestrator {
    * Execute all three test phases using TestRunner
    */
   private async executeAllPhases(config: TestConfig, executionStrategy: any): Promise<void> {
-    if (!this.testRunner) {
-      throw new Error('TestRunner not initialized');
+    if (!this.testRunner || !this.loadingScreen) {
+      throw new Error('TestRunner or LoadingScreen not initialized');
     }
 
+    // Start loading screen
+    this.loadingScreen.start();
+
     // Execute Phase 1: Data Discovery & Collection
+    this.loadingScreen.updatePhase(1, 3, 'Data Discovery & Collection');
+    this.loadingScreen.updateLoadingContext('crawling');
     await this.testRunner.executePhase1(config, executionStrategy);
     
     // Execute Phase 2: Unified Page Analysis & Testing  
+    this.loadingScreen.updatePhase(2, 3, 'Page Analysis & Testing');
+    this.loadingScreen.updateLoadingContext('testing');
     await this.testRunner.executePhase2(config, executionStrategy);
     
     // Execute Phase 3: Report Generation & Finalization
+    this.loadingScreen.updatePhase(3, 3, 'Report Generation');
+    this.loadingScreen.updateLoadingContext('reporting');
     await this.testRunner.executePhase3(config, executionStrategy);
+
+    // Stop loading screen
+    this.loadingScreen.stop();
 
     // Collect all results from TestRunner
     this.allTestResults = this.testRunner.getTestResults();
@@ -201,6 +225,12 @@ export class TestOrchestrator {
     if (this.reporterManager) {
       await this.reporterManager.cleanup();
       this.reporterManager = null;
+    }
+
+    // Cleanup loading screen
+    if (this.loadingScreen) {
+      this.loadingScreen.destroy();
+      this.loadingScreen = null;
     }
 
     // Reset session state

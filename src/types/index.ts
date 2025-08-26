@@ -4,6 +4,7 @@ export interface TestConfig {
   selectedTests: TestType[];
   viewports: ViewportConfig[];
   reporter?: ReporterConfig;
+  verboseMode?: boolean;
 }
 
 export interface TestType {

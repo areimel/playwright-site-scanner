@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { TestResult, SessionSummary } from '../types/index.js';
+import { LoadingScreen } from '../utils/loading-screen/index.js';
 
 /**
  * UIStyler class provides consistent console formatting and UI display logic
@@ -7,6 +8,14 @@ import { TestResult, SessionSummary } from '../types/index.js';
  * test orchestrator implementation.
  */
 export class UIStyler {
+  private loadingScreen: LoadingScreen | null = null;
+
+  /**
+   * Set the loading screen instance for coordinated output
+   */
+  setLoadingScreen(loadingScreen: LoadingScreen): void {
+    this.loadingScreen = loadingScreen;
+  }
   /**
    * Display files created summary with consistent formatting
    * @param sessionId - The session identifier
@@ -131,6 +140,11 @@ export class UIStyler {
    * @param type - The type of progress message (info, success, warning)
    */
   displayProgress(message: string, type: 'info' | 'success' | 'warning' = 'info'): void {
+    // Only show in verbose mode or when loading screen is not active
+    if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
+      return;
+    }
+
     switch (type) {
       case 'success':
         console.log(chalk.green(`✅ ${message}`));
