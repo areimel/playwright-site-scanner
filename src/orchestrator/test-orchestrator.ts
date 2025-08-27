@@ -5,6 +5,7 @@ import { SessionDataManager } from '../utils/session-data-store.js';
 import { ParallelExecutor } from '../utils/parallel-executor.js';
 import { ReporterManager } from '../utils/reporter-manager.js';
 import { LoadingScreen } from '../utils/loading-screen/index.js';
+import { SessionProgressTracker } from '../utils/session-progress-tracker.js';
 import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
 import { ScreenshotTester } from '../lib/screenshot-tester.js';
 import { SEOTester } from '../lib/seo-tester.js';
@@ -29,6 +30,7 @@ export class TestOrchestrator {
   private browserManager: BrowserManager;
   private sessionManager: SessionManager;
   private progressTracker: ProgressTracker;
+  private sessionProgressTracker: SessionProgressTracker | null = null;
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
   private resultsManager: ResultsManager;
@@ -84,6 +86,10 @@ export class TestOrchestrator {
       const executionStrategy = TestConfigManager.processExecutionStrategy(config);
       this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
 
+      // 2.5. Create session progress tracker (needs to know page count, so after strategy processing)
+      const estimatedPages = config.crawlSite ? 50 : 1; // Rough estimate, will be updated after crawling
+      this.sessionProgressTracker = SessionProgressTracker.createForConfig(config, estimatedPages);
+
       // 3. Initialize browser and session infrastructure
       await this.initializeSession(config, sessionSummary);
 
@@ -120,8 +126,14 @@ export class TestOrchestrator {
     // Initialize loading screen (check for verbose mode environment variable)
     const verboseMode = process.env.VERBOSE === 'true' || config.verboseMode === true;
     this.loadingScreen = new LoadingScreen({
-      enableVerboseMode: verboseMode
+      enableVerboseMode: verboseMode,
+      progressTracker: this.sessionProgressTracker
     });
+    
+    // Set session progress tracker on loading screen
+    if (this.sessionProgressTracker) {
+      this.loadingScreen.setProgressTracker(this.sessionProgressTracker);
+    }
     
     // Connect LoadingScreen to ParallelExecutor and UIStyler
     this.parallelExecutor.setLoadingScreen(this.loadingScreen);
@@ -167,17 +179,43 @@ export class TestOrchestrator {
     // Execute Phase 1: Data Discovery & Collection
     this.loadingScreen.updatePhase(1, 3, 'Data Discovery & Collection');
     this.loadingScreen.updateLoadingContext('crawling');
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.startPhase(1);
+    }
     await this.testRunner.executePhase1(config, executionStrategy);
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.completePhase(1);
+    }
     
     // Execute Phase 2: Unified Page Analysis & Testing  
     this.loadingScreen.updatePhase(2, 3, 'Page Analysis & Testing');
     this.loadingScreen.updateLoadingContext('testing');
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.startPhase(2);
+      // Update total pages if we discovered more during crawling
+      const actualPageCount = this.dataManager?.getUrls().length || 1;
+      if (actualPageCount !== this.sessionProgressTracker.getSessionProgress().totalPages) {
+        // Create new tracker with accurate page count
+        this.sessionProgressTracker = SessionProgressTracker.createForConfig(config, actualPageCount);
+        this.sessionProgressTracker.startPhase(2);
+        this.loadingScreen.setProgressTracker(this.sessionProgressTracker);
+      }
+    }
     await this.testRunner.executePhase2(config, executionStrategy);
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.completePhase(2);
+    }
     
     // Execute Phase 3: Report Generation & Finalization
     this.loadingScreen.updatePhase(3, 3, 'Report Generation');
     this.loadingScreen.updateLoadingContext('reporting');
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.startPhase(3);
+    }
     await this.testRunner.executePhase3(config, executionStrategy);
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.completePhase(3);
+    }
 
     // Stop loading screen
     this.loadingScreen.stop();
@@ -237,6 +275,7 @@ export class TestOrchestrator {
     this.dataManager = null;
     this.parallelExecutor = null;
     this.testRunner = null;
+    this.sessionProgressTracker = null;
     this.allTestResults = [];
   }
 }

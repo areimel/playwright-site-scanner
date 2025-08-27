@@ -101,6 +101,9 @@ export class LoadingProgressBar {
       total: totalPhases,
       name: phaseName
     };
+    
+    // Reset progress timing for new phase
+    this.data.startTime = new Date();
   }
 
   /**
@@ -116,12 +119,7 @@ export class LoadingProgressBar {
     
     const parts: string[] = [];
 
-    // Add label if provided
-    if (this.data.label) {
-      parts.push(this.data.label);
-    }
-
-    // Add the progress bar
+    // Add the progress bar (no hardcoded labels)
     parts.push(progressBar);
 
     // Add percentage if enabled
@@ -215,8 +213,7 @@ export class LoadingProgressBar {
    */
   private formatEmptyProgress(): string {
     const spinner = this.safeChars.spinner[0];
-    const label = this.data.label || 'Progress';
-    return `${spinner} ${label}...`;
+    return `${spinner} Initializing...`;
   }
 
   /**
@@ -295,6 +292,35 @@ export class LoadingProgressBar {
                 chalk.dim(this.safeChars.progressEmpty.repeat(empty));
 
     return `[${bar}] ${percentage}%`;
+  }
+
+  /**
+   * Get current progress value and total for external calculations
+   */
+  getCurrentProgress(): { current: number; total: number } {
+    return {
+      current: this.data.current,
+      total: this.data.total
+    };
+  }
+
+  /**
+   * Check if progress has meaningful data to display
+   */
+  hasProgress(): boolean {
+    return this.data.total > 0 && this.data.current >= 0;
+  }
+
+  /**
+   * Get the visual progress bar without labels or percentages
+   */
+  getBarOnly(): string {
+    if (this.data.total === 0) {
+      return this.formatEmptyProgress();
+    }
+
+    const percentage = Math.min(100, Math.max(0, (this.data.current / this.data.total) * 100));
+    return this.createProgressBar(percentage);
   }
 
   /**

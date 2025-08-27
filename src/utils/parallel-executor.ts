@@ -56,11 +56,16 @@ export class ParallelExecutor {
     
     // Use LoadingScreen if available, otherwise fall back to console logging
     if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-      this.loadingScreen.setProgressLabel(description);
-      this.loadingScreen.updateTaskProgress(0, tasks.length);
+      this.loadingScreen.setProgressContext(description);
+      this.loadingScreen.updateTaskProgress(0, tasks.length, description);
       this.loadingScreen.updateThreadInfo(0, concurrency);
     } else {
-      console.log(chalk.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
+      // Route through LoadingScreen for consistent handling
+      if (this.loadingScreen) {
+        this.loadingScreen.log(chalk.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
+      } else {
+        console.log(chalk.blue(`🚀 Starting ${tasks.length} ${description} (max ${concurrency} concurrent)`));
+      }
     }
 
     const successful: { id: string; result: T }[] = [];
@@ -89,7 +94,7 @@ export class ParallelExecutor {
           
           // Update progress
           if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-            this.loadingScreen.updateTaskProgress(completedCount, tasks.length);
+            this.loadingScreen.updateTaskProgress(completedCount, tasks.length, description);
           }
           
           if (options.onProgress) {
@@ -103,9 +108,14 @@ export class ParallelExecutor {
           
           // Update progress and log error
           if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-            this.loadingScreen.updateTaskProgress(completedCount, tasks.length);
+            this.loadingScreen.updateTaskProgress(completedCount, tasks.length, description);
           } else {
-            console.log(chalk.yellow(`   ⚠️  ${task.name} failed: ${errorMessage}`));
+            // Route error through LoadingScreen for consistent handling
+            if (this.loadingScreen) {
+              this.loadingScreen.log(`⚠️  ${task.name} failed: ${errorMessage}`, 'warning');
+            } else {
+              console.log(chalk.yellow(`   ⚠️  ${task.name} failed: ${errorMessage}`));
+            }
           }
           
           if (options.onProgress) {
@@ -136,8 +146,14 @@ export class ParallelExecutor {
     if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
       this.loadingScreen.updateThreadInfo(0, concurrency);
     } else {
-      console.log(chalk.green(`✅ Completed ${tasks.length} ${description} in ${duration}ms`));
-      console.log(chalk.green(`   Success: ${successful.length}, Failed: ${failed.length}`));
+      // Route completion messages through LoadingScreen
+      if (this.loadingScreen) {
+        this.loadingScreen.log(`✅ Completed ${tasks.length} ${description} in ${duration}ms`, 'success');
+        this.loadingScreen.log(`   Success: ${successful.length}, Failed: ${failed.length}`, 'success');
+      } else {
+        console.log(chalk.green(`✅ Completed ${tasks.length} ${description} in ${duration}ms`));
+        console.log(chalk.green(`   Success: ${successful.length}, Failed: ${failed.length}`));
+      }
     }
 
     return { successful, failed, duration };
@@ -160,11 +176,16 @@ export class ParallelExecutor {
     
     // Use LoadingScreen if available, otherwise fall back to console logging
     if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-      this.loadingScreen.setProgressLabel(`page testing`);
-      this.loadingScreen.updateTaskProgress(0, urls.length);
+      this.loadingScreen.setProgressContext('page testing');
+      this.loadingScreen.updateTaskProgress(0, urls.length, 'page testing');
       this.loadingScreen.updateThreadInfo(0, concurrency);
     } else {
-      console.log(chalk.blue(`🌐 Testing ${urls.length} pages with ${pageTestTasks.length} test types`));
+      // Route through LoadingScreen for consistent handling
+      if (this.loadingScreen) {
+        this.loadingScreen.log(`🌐 Testing ${urls.length} pages with ${pageTestTasks.length} test types`);
+      } else {
+        console.log(chalk.blue(`🌐 Testing ${urls.length} pages with ${pageTestTasks.length} test types`));
+      }
     }
     
     let completedPages = 0;
@@ -186,7 +207,12 @@ export class ParallelExecutor {
           if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
             // Loading screen handles the display
           } else {
-            console.log(chalk.gray(`   📄 Testing ${url}`));
+            // Route through LoadingScreen for consistent handling
+            if (this.loadingScreen) {
+              this.loadingScreen.log(`📄 Testing ${url}`, 'info');
+            } else {
+              console.log(chalk.gray(`   📄 Testing ${url}`));
+            }
           }
           await page.goto(url, { waitUntil: 'networkidle' });
           
@@ -236,7 +262,7 @@ export class ParallelExecutor {
           
           // Update loading screen progress
           if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-            this.loadingScreen.updateTaskProgress(completedPages, urls.length);
+            this.loadingScreen.updateTaskProgress(completedPages, urls.length, 'page testing');
           }
           
           if (options.onPageProgress) {
@@ -244,11 +270,16 @@ export class ParallelExecutor {
           }
           
           if (this.loadingScreen && this.loadingScreen.isVerboseMode()) {
-            console.log(chalk.green(`   ✅ Completed testing ${url}`));
+            this.loadingScreen.log(`✅ Completed testing ${url}`, 'success');
           }
           
         } catch (error) {
-          console.error(chalk.red(`   ❌ Error testing ${url}:`), error);
+          // Route error through LoadingScreen for consistent handling
+          if (this.loadingScreen) {
+            this.loadingScreen.log(`❌ Error testing ${url}: ${error}`, 'error');
+          } else {
+            console.error(chalk.red(`   ❌ Error testing ${url}:`), error);
+          }
           
           pageResults.set(url, {
             url,
@@ -314,7 +345,7 @@ export class ParallelExecutor {
 
     const result = await this.executeTasks(tasks, {
       maxConcurrency: viewports.length, // All viewports can run simultaneously
-      description: 'screenshot tests'
+      description: 'screenshots'
     });
 
     return result.successful.map(s => s.result);

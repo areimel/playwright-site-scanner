@@ -1,8 +1,10 @@
 import logUpdate from 'log-update';
+import chalk from 'chalk';
 import { PlatformDetector } from './platform-detector.js';
 import { LoadingText, LoadingTextOptions } from './loading-text.js';
 import { LoadingInfo, LoadingInfoData } from './loading-info.js';
 import { LoadingProgressBar, ProgressData } from './loading-progress-bar.js';
+import { SessionProgressTracker } from '../session-progress-tracker.js';
 
 export interface LoadingScreenOptions {
   enableVerboseMode?: boolean;
@@ -10,6 +12,13 @@ export interface LoadingScreenOptions {
   loadingText?: LoadingTextOptions;
   showInfo?: boolean;
   showProgress?: boolean;
+  progressTracker?: SessionProgressTracker | null;
+}
+
+export interface BufferedMessage {
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  timestamp: Date;
 }
 
 export interface LoadingScreenState {
@@ -18,6 +27,8 @@ export interface LoadingScreenState {
   totalPhases?: number;
   phaseName?: string;
   verboseMode: boolean;
+  currentContext?: string;
+  progressDescription?: string;
 }
 
 /**
@@ -38,6 +49,17 @@ export class LoadingScreen {
   private lastRender: string = '';
   private capabilities: ReturnType<typeof PlatformDetector.getCapabilities>;
   
+  // Console interception
+  private originalConsole: {
+    log: typeof console.log;
+    warn: typeof console.warn;
+    error: typeof console.error;
+  } | null = null;
+  private messageBuffer: BufferedMessage[] = [];
+  
+  // Progress tracking
+  private progressTracker: SessionProgressTracker | null = null;
+  
   constructor(options: LoadingScreenOptions = {}) {
     this.options = {
       enableVerboseMode: false,
@@ -49,8 +71,11 @@ export class LoadingScreen {
 
     this.state = {
       isActive: false,
-      verboseMode: this.options.enableVerboseMode || false
+      verboseMode: this.options.enableVerboseMode || false,
+      progressDescription: 'Preparing...'
     };
+    
+    this.progressTracker = options.progressTracker || null;
 
     this.capabilities = PlatformDetector.getCapabilities();
 
@@ -75,13 +100,16 @@ export class LoadingScreen {
 
     this.state.isActive = true;
     this.loadingText.start();
+    
+    // Intercept console output to prevent interference
+    this.interceptConsole();
 
     // Start the update loop if we can use advanced features
     if (this.capabilities.hasFullAnsiSupport) {
       this.startUpdateLoop();
     } else {
       // Fallback: just show initial loading message
-      console.log(this.loadingText.getFormattedText());
+      this.safeConsoleLog(this.loadingText.getFormattedText());
     }
   }
 
@@ -96,10 +124,18 @@ export class LoadingScreen {
     this.state.isActive = false;
     this.loadingText.stop();
     this.stopUpdateLoop();
+    
+    // Restore console output
+    this.restoreConsole();
 
     // Clear the loading screen if we were using log-update
     if (this.capabilities.hasFullAnsiSupport) {
       logUpdate.clear();
+    }
+    
+    // Flush buffered messages in verbose mode
+    if (this.state.verboseMode) {
+      this.flushBufferedMessages();
     }
   }
 
@@ -131,15 +167,31 @@ export class LoadingScreen {
   }
 
   /**
-   * Update task progress information
+   * Update task progress information with context
    */
-  updateTaskProgress(completed: number, total: number): void {
+  updateTaskProgress(completed: number, total: number, context?: string): void {
     if (this.state.verboseMode) {
       return;
     }
 
     this.loadingInfo.updateTaskProgress(completed, total);
-    this.progressBar.updateProgress(completed, total);
+    
+    // Use session progress tracker if available, otherwise fall back to local progress
+    if (this.progressTracker) {
+      this.progressTracker.updateTestProgress(completed);
+      const overallProgress = this.progressTracker.getOverallProgress();
+      const description = this.progressTracker.getProgressDescription();
+      
+      this.progressBar.updateProgress(overallProgress, 100);
+      this.progressBar.setLabel(''); // Clear any hardcoded labels
+      this.state.progressDescription = description;
+    } else {
+      this.progressBar.updateProgress(completed, total);
+      if (context) {
+        this.progressBar.setLabel(context);
+        this.state.currentContext = context;
+      }
+    }
   }
 
   /**
@@ -154,19 +206,26 @@ export class LoadingScreen {
     this.state.totalPhases = totalPhases;
     this.state.phaseName = phaseName;
 
+    // Update progress tracker if available
+    if (this.progressTracker) {
+      this.progressTracker.startPhase(phase);
+      this.state.progressDescription = this.progressTracker.getProgressDescription();
+    }
+
     this.loadingInfo.updatePhase(phase.toString(), phaseName);
-    this.progressBar.updatePhase(phase, totalPhases, phaseName);
+    this.progressBar.updatePhase(phase, totalPhases, '');
   }
 
   /**
-   * Set progress label
+   * Set progress context (replaces hardcoded labels)
    */
-  setProgressLabel(label: string): void {
+  setProgressContext(context: string): void {
     if (this.state.verboseMode) {
       return;
     }
 
-    this.progressBar.setLabel(label);
+    this.state.currentContext = context;
+    // Don't set hardcoded labels on progress bar anymore
   }
 
   /**
@@ -199,16 +258,19 @@ export class LoadingScreen {
   }
 
   /**
-   * Log a message (will either show in loading screen or as verbose output)
+   * Log a message (will either buffer for verbose mode or be ignored in clean mode)
    */
   log(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info'): void {
     if (this.state.verboseMode) {
-      // Traditional console logging
-      console.log(message);
+      // Use original console methods to avoid interception
+      this.safeConsoleLog(message);
     } else {
-      // In loading screen mode, we could queue messages or show them briefly
-      // For now, we'll just ignore them to keep the clean loading experience
-      // Could be enhanced to show a message queue or flash messages
+      // Buffer the message for potential later display
+      this.messageBuffer.push({
+        message,
+        type,
+        timestamp: new Date()
+      });
     }
   }
 
@@ -248,8 +310,14 @@ export class LoadingScreen {
 
     const lines: string[] = [];
 
-    // Loading text (always shown)
-    lines.push(this.loadingText.getFormattedText());
+    // Loading text with current context
+    const loadingText = this.loadingText.getFormattedText();
+    if (this.state.progressDescription) {
+      lines.push(`${loadingText}`);
+      lines.push(`${this.state.progressDescription}`);
+    } else {
+      lines.push(loadingText);
+    }
 
     // Progress bar (if enabled and has data)
     if (this.options.showProgress) {
@@ -280,8 +348,8 @@ export class LoadingScreen {
       if (this.capabilities.hasFullAnsiSupport) {
         logUpdate(currentRender);
       } else {
-        // Fallback for limited terminals - just show the loading text
-        console.log(this.loadingText.getFormattedText());
+        // Fallback for limited terminals - use safe console
+        this.safeConsoleLog(currentRender);
       }
       this.lastRender = currentRender;
     }
@@ -324,10 +392,113 @@ export class LoadingScreen {
   }
 
   /**
+   * Set the progress tracker for session-wide progress
+   */
+  setProgressTracker(tracker: SessionProgressTracker): void {
+    this.progressTracker = tracker;
+  }
+
+  /**
+   * Intercept console output to prevent interference with loading screen
+   */
+  private interceptConsole(): void {
+    if (this.originalConsole || this.state.verboseMode) {
+      return; // Already intercepted or in verbose mode
+    }
+
+    this.originalConsole = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error
+    };
+
+    // Replace console methods with buffering versions
+    console.log = (...args: any[]) => {
+      this.messageBuffer.push({
+        message: args.join(' '),
+        type: 'info',
+        timestamp: new Date()
+      });
+    };
+
+    console.warn = (...args: any[]) => {
+      this.messageBuffer.push({
+        message: args.join(' '),
+        type: 'warning',
+        timestamp: new Date()
+      });
+    };
+
+    console.error = (...args: any[]) => {
+      this.messageBuffer.push({
+        message: args.join(' '),
+        type: 'error',
+        timestamp: new Date()
+      });
+    };
+  }
+
+  /**
+   * Restore original console methods
+   */
+  private restoreConsole(): void {
+    if (!this.originalConsole) {
+      return;
+    }
+
+    console.log = this.originalConsole.log;
+    console.warn = this.originalConsole.warn;
+    console.error = this.originalConsole.error;
+    
+    this.originalConsole = null;
+  }
+
+  /**
+   * Use original console methods safely without interception
+   */
+  private safeConsoleLog(message: string): void {
+    if (this.originalConsole) {
+      this.originalConsole.log(message);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(message);
+    }
+  }
+
+  /**
+   * Flush buffered messages (used when switching to verbose mode or cleanup)
+   */
+  private flushBufferedMessages(): void {
+    if (this.messageBuffer.length === 0) {
+      return;
+    }
+
+    this.messageBuffer.forEach(msg => {
+      let formattedMessage = msg.message;
+      switch (msg.type) {
+        case 'success':
+          formattedMessage = chalk.green(msg.message);
+          break;
+        case 'warning':
+          formattedMessage = chalk.yellow(msg.message);
+          break;
+        case 'error':
+          formattedMessage = chalk.red(msg.message);
+          break;
+      }
+      this.safeConsoleLog(formattedMessage);
+    });
+    
+    this.messageBuffer = [];
+  }
+
+  /**
    * Cleanup resources and stop all timers
    */
   destroy(): void {
     this.stop();
     this.loadingText.destroy();
+    this.restoreConsole();
+    this.messageBuffer = [];
   }
 }

@@ -131,7 +131,11 @@ export class UIStyler {
    * @param message - The initialization message to display
    */
   displayInitialization(message: string): void {
-    console.log(chalk.blue(`🚀 ${message}`));
+    if (this.loadingScreen) {
+      this.loadingScreen.log(`🚀 ${message}`, 'info');
+    } else {
+      console.log(chalk.blue(`🚀 ${message}`));
+    }
   }
 
   /**
@@ -140,22 +144,36 @@ export class UIStyler {
    * @param type - The type of progress message (info, success, warning)
    */
   displayProgress(message: string, type: 'info' | 'success' | 'warning' = 'info'): void {
-    // Only show in verbose mode or when loading screen is not active
-    if (this.loadingScreen && !this.loadingScreen.isVerboseMode()) {
-      return;
-    }
-
-    switch (type) {
-      case 'success':
-        console.log(chalk.green(`✅ ${message}`));
-        break;
-      case 'warning':
-        console.log(chalk.yellow(`⚠️  ${message}`));
-        break;
-      case 'info':
-      default:
-        console.log(chalk.gray(`   ${message}`));
-        break;
+    // Route through loading screen for consistent handling
+    if (this.loadingScreen) {
+      let formattedMessage: string;
+      switch (type) {
+        case 'success':
+          formattedMessage = `✅ ${message}`;
+          break;
+        case 'warning':
+          formattedMessage = `⚠️  ${message}`;
+          break;
+        case 'info':
+        default:
+          formattedMessage = `   ${message}`;
+          break;
+      }
+      this.loadingScreen.log(formattedMessage, type);
+    } else {
+      // Fallback if no loading screen
+      switch (type) {
+        case 'success':
+          console.log(chalk.green(`✅ ${message}`));
+          break;
+        case 'warning':
+          console.log(chalk.yellow(`⚠️  ${message}`));
+          break;
+        case 'info':
+        default:
+          console.log(chalk.gray(`   ${message}`));
+          break;
+      }
     }
   }
 
@@ -165,8 +183,13 @@ export class UIStyler {
    * @param estimatedDuration - Estimated duration in seconds
    */
   displayExecutionStrategy(phases: number, estimatedDuration: number): void {
-    console.log(chalk.blue(`📋 Execution strategy: ${phases} phases`));
-    console.log(chalk.gray(`   Estimated duration: ${estimatedDuration}s`));
+    if (this.loadingScreen) {
+      this.loadingScreen.log(`📋 Execution strategy: ${phases} phases`, 'info');
+      this.loadingScreen.log(`   Estimated duration: ${estimatedDuration}s`, 'info');
+    } else {
+      console.log(chalk.blue(`📋 Execution strategy: ${phases} phases`));
+      console.log(chalk.gray(`   Estimated duration: ${estimatedDuration}s`));
+    }
   }
 
   /**
@@ -245,7 +268,11 @@ export class UIStyler {
    * @param count - Number of pages discovered
    */
   displaySiteDiscovery(count: number): void {
-    console.log(chalk.green(`   ✅ Found ${count} pages`));
+    if (this.loadingScreen) {
+      this.loadingScreen.log(`✅ Found ${count} pages`, 'success');
+    } else {
+      console.log(chalk.green(`   ✅ Found ${count} pages`));
+    }
   }
 
   /**
@@ -255,7 +282,11 @@ export class UIStyler {
    */
   displayHTMLReports(reportCount: number, success: boolean): void {
     if (success && reportCount > 0) {
-      console.log(chalk.green(`\n✅ Generated ${reportCount} HTML report(s)`));
+      if (this.loadingScreen) {
+        this.loadingScreen.log(`✅ Generated ${reportCount} HTML report(s)`, 'success');
+      } else {
+        console.log(chalk.green(`\n✅ Generated ${reportCount} HTML report(s)`));
+      }
     }
   }
 
@@ -265,10 +296,17 @@ export class UIStyler {
    */
   displayHTMLReportWarnings(errors: string[]): void {
     if (errors.length > 0) {
-      console.log(chalk.yellow('\n⚠️  Some HTML reports failed to generate:'));
-      errors.forEach(error => {
-        console.log(chalk.yellow(`   - ${error}`));
-      });
+      if (this.loadingScreen) {
+        this.loadingScreen.log('⚠️  Some HTML reports failed to generate:', 'warning');
+        errors.forEach(error => {
+          this.loadingScreen!.log(`   - ${error}`, 'warning');
+        });
+      } else {
+        console.log(chalk.yellow('\n⚠️  Some HTML reports failed to generate:'));
+        errors.forEach(error => {
+          console.log(chalk.yellow(`   - ${error}`));
+        });
+      }
     }
   }
 
