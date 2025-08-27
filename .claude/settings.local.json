@@ -18,7 +18,9 @@
       "Bash(grep:*)",
       "Bash(npm run dev:*)",
       "WebFetch(domain:playwright.dev)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

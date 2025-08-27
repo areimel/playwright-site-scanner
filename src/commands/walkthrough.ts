@@ -47,6 +47,24 @@ const AVAILABLE_TESTS: TestType[] = [
     name: 'API Key Security Scan',
     description: 'Scan site for exposed API keys and security tokens',
     enabled: false
+  },
+  {
+    id: 'ai-rag-analysis',
+    name: 'AI RAG Analysis',
+    description: 'AI-powered analysis and semantic search of all test results',
+    enabled: false
+  },
+  {
+    id: 'ai-vision-analysis',
+    name: 'AI Vision Analysis',
+    description: 'AI-powered screenshot analysis for UI/UX insights and accessibility',
+    enabled: false
+  },
+  {
+    id: 'ai-insights-generation',
+    name: 'AI Insights Generation',
+    description: 'Generate comprehensive AI-powered recommendations and insights',
+    enabled: false
   }
 ];
 

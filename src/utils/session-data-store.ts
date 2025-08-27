@@ -1,4 +1,4 @@
-import { ScrapedContent, SitemapEntry, PageSummary } from '../types/index.js';
+import { ScrapedContent, SitemapEntry, PageSummary, PageResult, TestResult } from '../types/index.js';
 
 export interface PageMetrics {
   url: string;
@@ -328,5 +328,75 @@ export class SessionDataManager {
       phase2Complete: this.data.phase2Complete,
       phase3Complete: this.data.phase3Complete
     };
+  }
+
+  /**
+   * Get all page results for AI analysis
+   */
+  getAllPageResults(): PageResult[] {
+    return this.data.urls.map(url => {
+      const content = this.data.scrapedContent.get(url);
+      const metrics = this.data.pageMetrics.get(url);
+      const errors = this.data.errors.get(url) || [];
+      
+      // Create mock test results from scraped data
+      const tests: TestResult[] = [];
+      
+      // Add content scraping result if available
+      if (content) {
+        tests.push({
+          testType: 'content-scraping',
+          status: 'success',
+          startTime: new Date(),
+          endTime: new Date(),
+          outputType: 'per-page'
+        });
+      }
+      
+      // Add basic metrics as test results
+      if (metrics) {
+        tests.push({
+          testType: 'seo',
+          status: 'success',
+          startTime: new Date(),
+          endTime: new Date(),
+          outputType: 'per-page'
+        });
+      }
+      
+      return {
+        url,
+        pageName: this.extractPageNameFromUrl(url),
+        tests,
+        summary: `Page analysis for ${url}`
+      };
+    });
+  }
+
+  private extractPageNameFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      let pathname = urlObj.pathname;
+      
+      // Remove leading slash
+      if (pathname.startsWith('/')) {
+        pathname = pathname.substring(1);
+      }
+      
+      // Remove trailing slash
+      if (pathname.endsWith('/')) {
+        pathname = pathname.substring(0, pathname.length - 1);
+      }
+      
+      // Handle homepage
+      if (!pathname) {
+        pathname = 'home';
+      }
+      
+      // Replace slashes with dashes
+      return pathname.replace(/\//g, '-') || 'home';
+    } catch (error) {
+      return 'unknown-page';
+    }
   }
 }

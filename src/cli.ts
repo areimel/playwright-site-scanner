@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { getWelcomeScreen, getBanner } from './utils/ascii-art.js';
 import { runWalkthrough } from './commands/walkthrough.js';
+import { runAIChat } from './commands/ai-chat.js';
 import { TestOrchestrator } from './orchestrator/test-orchestrator.js';
 import { TestConfig } from './types/index.js';
 
@@ -11,7 +12,7 @@ const program = new Command();
 
 program
   .name('arda-site-scan')
-  .description('Comprehensive website analysis with Playwright')
+  .description('Comprehensive website analysis with Playwright and AI-powered insights')
   .version('1.0.0');
 
 program
@@ -72,6 +73,22 @@ program
       await orchestrator.runTests(config);
     } catch (error) {
       console.error(chalk.red('\n❌ An error occurred:'), error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('chat')
+  .description('Interactive AI chat about test results and website optimization')
+  .action(async () => {
+    console.clear();
+    console.log(getBanner());
+    console.log(chalk.gray('Starting AI chat assistant...\n'));
+    
+    try {
+      await runAIChat();
+    } catch (error) {
+      console.error(chalk.red('\n❌ Chat session error:'), error);
       process.exit(1);
     }
   });

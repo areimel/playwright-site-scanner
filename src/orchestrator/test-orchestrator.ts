@@ -14,6 +14,7 @@ import { SitemapTester } from '../lib/sitemap-tester.js';
 import { ContentScraper } from '../lib/content-scraper.js';
 import { SiteSummaryTester } from '../lib/site-summary-tester.js';
 import { ApiKeyTester } from '../lib/api-key-tester.js';
+import { AIServiceOrchestrator } from '../lib/ai/ai-service-orchestrator.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -34,6 +35,7 @@ export class TestOrchestrator {
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
   private resultsManager: ResultsManager;
+  private aiServiceOrchestrator: AIServiceOrchestrator;
   
   // Test execution modules
   private testRunner: TestRunner | null = null;
@@ -55,6 +57,7 @@ export class TestOrchestrator {
     this.errorHandler = new ErrorHandler();
     this.uiStyler = new UIStyler();
     this.resultsManager = new ResultsManager(this.sessionManager, this.errorHandler, this.uiStyler);
+    this.aiServiceOrchestrator = new AIServiceOrchestrator();
   }
 
   /**
@@ -123,6 +126,9 @@ export class TestOrchestrator {
     this.dataManager = new SessionDataManager(config.url, sessionSummary.sessionId);
     this.parallelExecutor = new ParallelExecutor(this.browserManager.getBrowser()!, 5);
     
+    // Initialize AI services
+    await this.aiServiceOrchestrator.initialize();
+    
     // Initialize loading screen (check for verbose mode environment variable)
     const verboseMode = process.env.VERBOSE === 'true' || config.verboseMode === true;
     this.loadingScreen = new LoadingScreen({
@@ -160,6 +166,7 @@ export class TestOrchestrator {
       new ContentScraper(),
       new SiteSummaryTester(),
       new ApiKeyTester(),
+      this.aiServiceOrchestrator,
       this.errorHandler,
       this.uiStyler
     );

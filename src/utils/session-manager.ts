@@ -190,4 +190,23 @@ export class SessionManager {
     await fs.mkdir(dir, { recursive: true });
   }
 
+  /**
+   * Get session-level file path
+   */
+  getSessionFilePath(sessionId: string, filename: string): string {
+    return path.join(this.outputDir, sessionId, filename);
+  }
+
+  /**
+   * Write file with proper error handling
+   */
+  async writeFile(filePath: string, content: string): Promise<void> {
+    // Ensure directory exists
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+    
+    // Write file
+    await fs.writeFile(filePath, content, 'utf8');
+  }
+
 }

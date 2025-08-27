@@ -115,6 +115,40 @@ export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
     conflictsWith: [],
     resourceIntensive: false,
     outputType: 'site-wide'
+  },
+
+  // AI-Powered Features (Phase 3: Analysis & Insights)
+  'ai-rag-analysis': {
+    testId: 'ai-rag-analysis',
+    phase: 3,
+    scope: 'session',
+    executionOrder: 2,
+    dependencies: ['content-scraping', 'seo', 'accessibility'],
+    conflictsWith: [],
+    resourceIntensive: true,
+    outputType: 'site-wide'
+  },
+
+  'ai-vision-analysis': {
+    testId: 'ai-vision-analysis',
+    phase: 3,
+    scope: 'page',
+    executionOrder: 3,
+    dependencies: ['screenshots'],
+    conflictsWith: [],
+    resourceIntensive: true,
+    outputType: 'per-page'
+  },
+
+  'ai-insights-generation': {
+    testId: 'ai-insights-generation',
+    phase: 3,
+    scope: 'session',
+    executionOrder: 4,
+    dependencies: ['ai-rag-analysis'],
+    conflictsWith: [],
+    resourceIntensive: false,
+    outputType: 'site-wide'
   }
 };
 

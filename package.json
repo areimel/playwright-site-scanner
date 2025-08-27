@@ -48,6 +48,8 @@
     "url": "https://github.com/areimel/playwright-site-scanner/issues"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.11",
+    "ai": "^5.0.25",
     "chalk": "^5.4.1",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.0",

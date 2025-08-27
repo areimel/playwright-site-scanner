@@ -12,6 +12,7 @@ import { SitemapTester } from '../lib/sitemap-tester.js';
 import { ContentScraper } from '../lib/content-scraper.js';
 import { SiteSummaryTester } from '../lib/site-summary-tester.js';
 import { ApiKeyTester } from '../lib/api-key-tester.js';
+import { AIServiceOrchestrator } from '../lib/ai/ai-service-orchestrator.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -33,6 +34,7 @@ export class TestRunner {
   private contentScraper: ContentScraper;
   private siteSummaryTester: SiteSummaryTester;
   private apiKeyTester: ApiKeyTester;
+  private aiServiceOrchestrator: AIServiceOrchestrator;
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
 
@@ -51,6 +53,7 @@ export class TestRunner {
     contentScraper: ContentScraper,
     siteSummaryTester: SiteSummaryTester,
     apiKeyTester: ApiKeyTester,
+    aiServiceOrchestrator: AIServiceOrchestrator,
     errorHandler: ErrorHandler,
     uiStyler: UIStyler
   ) {
@@ -65,6 +68,7 @@ export class TestRunner {
     this.contentScraper = contentScraper;
     this.siteSummaryTester = siteSummaryTester;
     this.apiKeyTester = apiKeyTester;
+    this.aiServiceOrchestrator = aiServiceOrchestrator;
     this.errorHandler = errorHandler;
     this.uiStyler = uiStyler;
   }
@@ -259,6 +263,12 @@ export class TestRunner {
           switch (testId) {
             case 'site-summary':
               return await this.siteSummaryTester.generateSiteSummaryFromStore(this.dataManager);
+            case 'ai-rag-analysis':
+              const pageResults = this.dataManager.getAllPageResults();
+              return await this.aiServiceOrchestrator.runRAGAnalysis(this.dataManager.sessionId, pageResults);
+            case 'ai-insights-generation':
+              const allPageResults = this.dataManager.getAllPageResults();
+              return await this.aiServiceOrchestrator.generateAIInsights(this.dataManager.sessionId, allPageResults);
             default:
               throw new Error(`Unknown report test: ${testId}`);
           }
@@ -276,9 +286,45 @@ export class TestRunner {
       });
     }
 
+    // Execute page-level tests (like AI vision analysis)
+    if (phase3Plan.pageTests.length > 0) {
+      const urls = this.dataManager.getUrls();
+      this.uiStyler.displayProgress(`🤖 Running AI analysis on ${urls.length} page(s)...`);
+      
+      const pageTasks: Array<{id: string, name: string, execute: () => Promise<TestResult>}> = [];
+      
+      for (const url of urls) {
+        for (const testId of phase3Plan.pageTests) {
+          pageTasks.push({
+            id: `${testId}-${url}`,
+            name: `${this.getTestName(testId)} (${new URL(url).pathname})`,
+            execute: async () => {
+              switch (testId) {
+                case 'ai-vision-analysis':
+                  return await this.aiServiceOrchestrator.runVisionAnalysis(url, this.dataManager.sessionId);
+                default:
+                  throw new Error(`Unknown page test: ${testId}`);
+              }
+            }
+          });
+        }
+      }
+
+      const pageResults = await this.parallelExecutor.executeTasks(pageTasks, {
+        description: 'AI analysis',
+        maxConcurrency: 3
+      });
+      
+      // Collect page-level AI results
+      pageResults.successful.forEach(result => {
+        this.allTestResults.push(result.result as TestResult);
+      });
+    }
+
     this.dataManager.markPhaseComplete(3);
     this.uiStyler.displayPhaseComplete(3);
   }
+
 
   /**
    * Process a single page with all enabled tests using hybrid parallel execution
@@ -319,6 +365,7 @@ export class TestRunner {
               case 'api-key-scan':
                 this.uiStyler.displayTestProgress('🔐 API key scan');
                 return await this.apiKeyTester.runApiKeyScan(page!, url, this.dataManager.sessionId);
+
 
               default:
                 throw new Error(`Unknown non-conflicting test type: ${testType}`);
@@ -400,7 +447,7 @@ export class TestRunner {
     screenshots: string[];
   } {
     // Tests that don't modify DOM or viewport and can run in parallel
-    const nonConflictingTests = ['content-scraping', 'seo', 'api-key-scan'];
+    const nonConflictingTests = ['content-scraping', 'seo', 'api-key-scan', 'ai-vision'];
     
     // Tests that modify viewport or inject scripts (must run separately)
     const conflictingTests = ['accessibility', 'screenshots'];
@@ -422,8 +469,11 @@ export class TestRunner {
       'content-scraping': 'Content Scraping',
       'screenshots': 'Screenshots',
       'seo': 'SEO Scan',
-      'accessibility': 'Accessibility Scan',
       'site-summary': 'Site Summary',
+      'ai-rag-analysis': 'AI RAG Analysis',
+      'ai-vision-analysis': 'AI Vision Analysis',
+      'ai-insights-generation': 'AI Insights Generation',
+      'accessibility': 'Accessibility Scan',
       'api-key-scan': 'API Key Security Scan'
     };
     
