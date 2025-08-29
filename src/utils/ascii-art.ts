@@ -1,33 +1,18 @@
 import chalk from 'chalk';
+import { getBrandingConfig } from './config-loader.js';
 
-export const getWelcomeScreen = (): string => {
-  return chalk.hex('#FF8800')(`
-╔═══════════════════════════════════════════════════════════════════════╗
-║                                                                       ║
-║   █████╗     ██████╗     ██████╗      █████╗                          ║             
-║  ██╔══██╗    ██╔══██╗    ██╔══██╗    ██╔══██╗                         ║             
-║  ███████║    ██████╔╝    ██║  ██║    ███████║                         ║             
-║  ██╔══██║    ██╔══██╗    ██║  ██║    ██╔══██║                         ║             
-║  ██║  ██║██╗ ██║  ██║██╗ ██████╔╝██╗ ██║  ██║██╗                      ║             
-║  ╚═╝  ╚═╝╚═╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝ ╚═╝  ╚═╝╚═╝                      ║
-║                                                                       ║
-║  ███████╗██╗████████╗███████╗    ███████╗ ██████╗ █████╗ ███╗   ██╗   ║
-║  ██╔════╝██║╚══██╔══╝██╔════╝    ██╔════╝██╔════╝██╔══██╗████╗  ██║   ║
-║  ███████╗██║   ██║   █████╗      ███████╗██║     ███████║██╔██╗ ██║   ║
-║  ╚════██║██║   ██║   ██╔══╝      ╚════██║██║     ██╔══██║██║╚██╗██║   ║
-║  ███████║██║   ██║   ███████╗    ███████║╚██████╗██║  ██║██║ ╚████║   ║
-║  ╚══════╝╚═╝   ╚═╝   ╚══════╝    ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝   ║
-║                                                                       ║
-╚═══════════════════════════════════════════════════════════════════════╝
-`);
+export const getWelcomeScreen = async (): Promise<string> => {
+  const branding = await getBrandingConfig();
+  return chalk.hex(branding.welcomeScreen.color)(branding.welcomeScreen.ascii);
 };
 
-export const getBanner = (): string => {
-  return chalk.hex('#FF8800')(`
-  Welcome to Arda Site Scan!
-  Comprehensive website analysis with Playwright.
+export const getBanner = async (): Promise<string> => {
+  const branding = await getBrandingConfig();
+  return chalk.hex(branding.banner.color)(`
+  ${branding.banner.title}
+  ${branding.banner.subtitle}
   
-  Built by: Alec Reimel, Advanced Research & Development Agency
-  Find more tools at: https://advancedresearch.dev
+  ${branding.banner.builtBy}
+  ${branding.banner.moreTools}
 `);
 };

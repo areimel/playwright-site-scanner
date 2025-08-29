@@ -1,4 +1,5 @@
 import { TestConfig } from './index.js';
+import { getTestClassifications, getPhaseDefinitions } from '../utils/config-loader.js';
 
 export type TestPhase = 1 | 2 | 3;
 
@@ -24,129 +25,25 @@ export interface TestClassification {
   outputType: 'per-page' | 'site-wide';
 }
 
-// Test classifications for all available tests
-export const TEST_CLASSIFICATIONS: Record<string, TestClassification> = {
-  // Phase 1: Data Discovery & Collection
-  'site-crawling': {
-    testId: 'site-crawling',
-    phase: 1,
-    scope: 'session',
-    executionOrder: 1,
-    dependencies: [],
-    conflictsWith: [],
-    resourceIntensive: true,
-    outputType: 'site-wide'
-  },
-  
-  'sitemap': {
-    testId: 'sitemap',
-    phase: 1,
-    scope: 'session',
-    executionOrder: 2,
-    dependencies: ['site-crawling'],
-    conflictsWith: [],
-    resourceIntensive: false,
-    outputType: 'site-wide'
-  },
+// Test classifications loaded from config
+let TEST_CLASSIFICATIONS: Record<string, TestClassification> | null = null;
 
-  // Phase 2: Unified Page Analysis & Testing
-  'content-scraping': {
-    testId: 'content-scraping',
-    phase: 2,
-    scope: 'page',
-    executionOrder: 1,
-    dependencies: ['site-crawling'],
-    conflictsWith: [],
-    resourceIntensive: true,
-    outputType: 'per-page'
-  },
-
-  'seo': {
-    testId: 'seo',
-    phase: 2,
-    scope: 'page',
-    executionOrder: 2,
-    dependencies: [],
-    conflictsWith: [],
-    resourceIntensive: false,
-    outputType: 'per-page'
-  },
-
-  'accessibility': {
-    testId: 'accessibility',
-    phase: 2,
-    scope: 'page',
-    executionOrder: 3,
-    dependencies: [],
-    conflictsWith: ['screenshots'], // Both modify viewport
-    resourceIntensive: true,
-    outputType: 'per-page'
-  },
-
-  'screenshots': {
-    testId: 'screenshots',
-    phase: 2,
-    scope: 'page',
-    executionOrder: 4,
-    dependencies: [],
-    conflictsWith: ['accessibility'], // Both modify viewport
-    resourceIntensive: true,
-    outputType: 'per-page'
-  },
-
-  'api-key-scan': {
-    testId: 'api-key-scan',
-    phase: 2,
-    scope: 'session',
-    executionOrder: 4,
-    dependencies: [],
-    conflictsWith: [],
-    resourceIntensive: false,
-    outputType: 'site-wide'
-  },
-
-  // Phase 3: Report Generation & Finalization
-  'site-summary': {
-    testId: 'site-summary',
-    phase: 3,
-    scope: 'session',
-    executionOrder: 1,
-    dependencies: ['content-scraping'],
-    conflictsWith: [],
-    resourceIntensive: false,
-    outputType: 'site-wide'
+async function getTestClassificationsCache(): Promise<Record<string, TestClassification>> {
+  if (!TEST_CLASSIFICATIONS) {
+    TEST_CLASSIFICATIONS = await getTestClassifications();
   }
-};
+  return TEST_CLASSIFICATIONS;
+}
 
-// Phase definitions
-export const PHASE_DEFINITIONS: Record<TestPhase, PhaseDefinition> = {
-  1: {
-    phase: 1,
-    name: 'Site Discovery',
-    description: 'Site crawling and sitemap generation (session-level operations)',
-    scope: 'session',
-    dependencies: [],
-    parallelizable: true
-  },
-  
-  2: {
-    phase: 2,
-    name: 'Unified Page Analysis',
-    description: 'Content scraping, SEO, accessibility, and screenshot testing in single page sessions',
-    scope: 'page',
-    dependencies: [1],
-    parallelizable: true
-  },
-  
-  3: {
-    phase: 3,
-    name: 'Report Generation',
-    description: 'Site summaries, aggregated reports, and final analysis',
-    scope: 'session',
-    dependencies: [1, 2],
-    parallelizable: true
+// Phase definitions loaded from config
+let PHASE_DEFINITIONS: Record<TestPhase, PhaseDefinition> | null = null;
+
+async function getPhaseDefinitionsCache(): Promise<Record<TestPhase, PhaseDefinition>> {
+  if (!PHASE_DEFINITIONS) {
+    PHASE_DEFINITIONS = await getPhaseDefinitions();
   }
-};
+  return PHASE_DEFINITIONS;
+}
 
 export interface PhaseExecutionPlan {
   phase: TestPhase;
@@ -167,7 +64,8 @@ export class TestPhaseManager {
   /**
    * Organize selected tests into execution phases
    */
-  static organizeTestsIntoPhases(config: TestConfig): ExecutionStrategy {
+  static async organizeTestsIntoPhases(config: TestConfig): Promise<ExecutionStrategy> {
+    const testClassifications = await getTestClassificationsCache();
     const selectedTestIds = config.selectedTests
       .filter(test => test.enabled)
       .map(test => test.id);
@@ -176,7 +74,7 @@ export class TestPhaseManager {
     
     // Phase 1: Data Collection
     const phase1Tests = selectedTestIds.filter(testId => 
-      TEST_CLASSIFICATIONS[testId]?.phase === 1
+      testClassifications[testId]?.phase === 1
     );
     
     if (phase1Tests.length > 0 || config.crawlSite) {
@@ -185,7 +83,7 @@ export class TestPhaseManager {
       const pageTests: string[] = [];
       
       phase1Tests.forEach(testId => {
-        const classification = TEST_CLASSIFICATIONS[testId];
+        const classification = testClassifications[testId];
         if (classification.scope === 'session') {
           sessionTests.push(testId);
         } else {
@@ -203,7 +101,7 @@ export class TestPhaseManager {
 
     // Phase 2: Page Analysis
     const phase2Tests = selectedTestIds.filter(testId => 
-      TEST_CLASSIFICATIONS[testId]?.phase === 2
+      testClassifications[testId]?.phase === 2
     );
     
     if (phase2Tests.length > 0) {
@@ -211,7 +109,7 @@ export class TestPhaseManager {
       const pageTests: string[] = [];
       
       phase2Tests.forEach(testId => {
-        const classification = TEST_CLASSIFICATIONS[testId];
+        const classification = testClassifications[testId];
         if (classification.scope === 'session') {
           sessionTests.push(testId);
         } else {
@@ -229,7 +127,7 @@ export class TestPhaseManager {
 
     // Phase 3: Report Generation
     const phase3Tests = selectedTestIds.filter(testId => 
-      TEST_CLASSIFICATIONS[testId]?.phase === 3
+      testClassifications[testId]?.phase === 3
     );
     
     if (phase3Tests.length > 0) {
@@ -237,7 +135,7 @@ export class TestPhaseManager {
       const pageTests: string[] = [];
       
       phase3Tests.forEach(testId => {
-        const classification = TEST_CLASSIFICATIONS[testId];
+        const classification = testClassifications[testId];
         if (classification.scope === 'session') {
           sessionTests.push(testId);
         } else {
@@ -255,7 +153,7 @@ export class TestPhaseManager {
 
     return {
       phases,
-      totalEstimatedDuration: this.estimateTotalDuration(phases, config),
+      totalEstimatedDuration: await this.estimateTotalDuration(phases, config),
       parallelPages: true,
       maxConcurrentPages: 5
     };
@@ -264,9 +162,10 @@ export class TestPhaseManager {
   /**
    * Check if tests can run in parallel (no conflicts)
    */
-  static canRunInParallel(testId1: string, testId2: string): boolean {
-    const test1 = TEST_CLASSIFICATIONS[testId1];
-    const test2 = TEST_CLASSIFICATIONS[testId2];
+  static async canRunInParallel(testId1: string, testId2: string): Promise<boolean> {
+    const testClassifications = await getTestClassificationsCache();
+    const test1 = testClassifications[testId1];
+    const test2 = testClassifications[testId2];
     
     if (!test1 || !test2) return false;
     
@@ -281,12 +180,13 @@ export class TestPhaseManager {
   /**
    * Get execution order for tests within a phase
    */
-  static getExecutionOrder(testIds: string[]): string[] {
+  static async getExecutionOrder(testIds: string[]): Promise<string[]> {
+    const testClassifications = await getTestClassificationsCache();
     return testIds
-      .filter(testId => TEST_CLASSIFICATIONS[testId])
+      .filter(testId => testClassifications[testId])
       .sort((a, b) => {
-        const orderA = TEST_CLASSIFICATIONS[a].executionOrder;
-        const orderB = TEST_CLASSIFICATIONS[b].executionOrder;
+        const orderA = testClassifications[a].executionOrder;
+        const orderB = testClassifications[b].executionOrder;
         return orderA - orderB;
       });
   }
@@ -294,11 +194,12 @@ export class TestPhaseManager {
   /**
    * Check if all dependencies are satisfied
    */
-  static validateDependencies(testIds: string[]): { valid: boolean; missingDependencies: string[] } {
+  static async validateDependencies(testIds: string[]): Promise<{ valid: boolean; missingDependencies: string[] }> {
+    const testClassifications = await getTestClassificationsCache();
     const missingDependencies: string[] = [];
     
     for (const testId of testIds) {
-      const classification = TEST_CLASSIFICATIONS[testId];
+      const classification = testClassifications[testId];
       if (!classification) continue;
       
       for (const dependency of classification.dependencies) {
@@ -317,18 +218,19 @@ export class TestPhaseManager {
   /**
    * Get resource requirements for a phase
    */
-  static getPhaseResourceRequirements(phase: TestPhase, testIds: string[]): {
+  static async getPhaseResourceRequirements(phase: TestPhase, testIds: string[]): Promise<{
     memoryIntensive: number;
     cpuIntensive: number;
     networkIntensive: number;
     recommendedConcurrency: number;
-  } {
+  }> {
+    const testClassifications = await getTestClassificationsCache();
     const phaseTests = testIds.filter(testId => 
-      TEST_CLASSIFICATIONS[testId]?.phase === phase
+      testClassifications[testId]?.phase === phase
     );
     
     const resourceIntensiveTests = phaseTests.filter(testId =>
-      TEST_CLASSIFICATIONS[testId]?.resourceIntensive
+      testClassifications[testId]?.resourceIntensive
     );
     
     let recommendedConcurrency = 5; // Default
@@ -359,11 +261,12 @@ export class TestPhaseManager {
   /**
    * Estimate duration for execution strategy
    */
-  private static estimateTotalDuration(phases: PhaseExecutionPlan[], config: TestConfig): number {
+  private static async estimateTotalDuration(phases: PhaseExecutionPlan[], config: TestConfig): Promise<number> {
+    const phaseDefinitions = await getPhaseDefinitionsCache();
     let totalDuration = 0;
     
     for (const phase of phases) {
-      const phaseDefinition = PHASE_DEFINITIONS[phase.phase];
+      const phaseDefinition = phaseDefinitions[phase.phase];
       
       if (phaseDefinition.scope === 'session') {
         // Session-level tests run once
@@ -383,25 +286,27 @@ export class TestPhaseManager {
   /**
    * Get phase summary for display
    */
-  static getPhaseSummary(phase: TestPhase, testIds: string[]): {
+  static async getPhaseSummary(phase: TestPhase, testIds: string[]): Promise<{
     name: string;
     description: string;
     testCount: number;
     sessionTests: string[];
     pageTests: string[];
     estimatedDuration: number;
-  } {
-    const phaseDefinition = PHASE_DEFINITIONS[phase];
+  }> {
+    const phaseDefinitions = await getPhaseDefinitionsCache();
+    const testClassifications = await getTestClassificationsCache();
+    const phaseDefinition = phaseDefinitions[phase];
     const phaseTests = testIds.filter(testId => 
-      TEST_CLASSIFICATIONS[testId]?.phase === phase
+      testClassifications[testId]?.phase === phase
     );
     
     const sessionTests = phaseTests.filter(testId =>
-      TEST_CLASSIFICATIONS[testId]?.scope === 'session'
+      testClassifications[testId]?.scope === 'session'
     );
     
     const pageTests = phaseTests.filter(testId =>
-      TEST_CLASSIFICATIONS[testId]?.scope === 'page'
+      testClassifications[testId]?.scope === 'page'
     );
     
     return {

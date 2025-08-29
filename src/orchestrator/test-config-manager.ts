@@ -1,5 +1,6 @@
 import { TestConfig, TestType } from '../types/index.js';
-import { TestPhaseManager, ExecutionStrategy, TEST_CLASSIFICATIONS } from '../types/test-phases.js';
+import { TestPhaseManager, ExecutionStrategy } from '../types/test-phases.js';
+import { getTestClassifications, getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig } from '../utils/config-loader.js';
 
 /**
  * TestConfigManager handles all test configuration processing and validation
@@ -45,7 +46,7 @@ export class TestConfigManager {
   /**
    * Validates test configuration and returns validation results
    */
-  static validateConfig(config: TestConfig): { valid: boolean; errors: string[] } {
+  static async validateConfig(config: TestConfig): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
     // Validate URL
@@ -128,7 +129,7 @@ export class TestConfigManager {
       ? [...enabledTestIds, 'site-crawling'] 
       : enabledTestIds;
       
-    const dependencyValidation = TestPhaseManager.validateDependencies(validationTestIds);
+    const dependencyValidation = await TestPhaseManager.validateDependencies(validationTestIds);
     if (!dependencyValidation.valid) {
       errors.push(`Missing dependencies: ${dependencyValidation.missingDependencies.join(', ')}`);
     }
@@ -142,8 +143,8 @@ export class TestConfigManager {
   /**
    * Creates execution strategy from test configuration
    */
-  static processExecutionStrategy(config: TestConfig): ExecutionStrategy {
-    return TestPhaseManager.organizeTestsIntoPhases(config);
+  static async processExecutionStrategy(config: TestConfig): Promise<ExecutionStrategy> {
+    return await TestPhaseManager.organizeTestsIntoPhases(config);
   }
 
   /**
@@ -185,15 +186,17 @@ export class TestConfigManager {
   /**
    * Gets all available test IDs from classifications
    */
-  static getAllAvailableTestIds(): string[] {
-    return Object.keys(TEST_CLASSIFICATIONS);
+  static async getAllAvailableTestIds(): Promise<string[]> {
+    const testClassifications = await getTestClassifications();
+    return Object.keys(testClassifications);
   }
 
   /**
    * Gets tests by phase
    */
-  static getTestsByPhase(phase: 1 | 2 | 3): string[] {
-    return Object.entries(TEST_CLASSIFICATIONS)
+  static async getTestsByPhase(phase: 1 | 2 | 3): Promise<string[]> {
+    const testClassifications = await getTestClassifications();
+    return Object.entries(testClassifications)
       .filter(([, classification]) => classification.phase === phase)
       .map(([testId]) => testId);
   }
@@ -201,15 +204,17 @@ export class TestConfigManager {
   /**
    * Gets test classification information
    */
-  static getTestClassification(testId: string) {
-    return TEST_CLASSIFICATIONS[testId] || null;
+  static async getTestClassification(testId: string) {
+    const testClassifications = await getTestClassifications();
+    return testClassifications[testId] || null;
   }
 
   /**
    * Checks if a test requires site crawling
    */
-  static testRequiresCrawling(testId: string): boolean {
-    const classification = TEST_CLASSIFICATIONS[testId];
+  static async testRequiresCrawling(testId: string): Promise<boolean> {
+    const testClassifications = await getTestClassifications();
+    const classification = testClassifications[testId];
     if (!classification) return false;
     
     return classification.dependencies.includes('site-crawling') || 
@@ -219,10 +224,11 @@ export class TestConfigManager {
   /**
    * Gets resource-intensive tests from configuration
    */
-  static getResourceIntensiveTests(config: TestConfig): string[] {
+  static async getResourceIntensiveTests(config: TestConfig): Promise<string[]> {
+    const testClassifications = await getTestClassifications();
     const enabledTestIds = this.getEnabledTestIds(config);
     return enabledTestIds.filter(testId => {
-      const classification = TEST_CLASSIFICATIONS[testId];
+      const classification = testClassifications[testId];
       return classification?.resourceIntensive || false;
     });
   }
@@ -230,20 +236,21 @@ export class TestConfigManager {
   /**
    * Estimates total test count based on configuration
    */
-  static estimateTestCount(config: TestConfig): number {
+  static async estimateTestCount(config: TestConfig): Promise<number> {
+    const testClassifications = await getTestClassifications();
     const enabledTestIds = this.getEnabledTestIds(config);
     let totalTests = 0;
     
     // Count session-level tests (run once)
     const sessionTests = enabledTestIds.filter(testId => {
-      const classification = TEST_CLASSIFICATIONS[testId];
+      const classification = testClassifications[testId];
       return classification?.scope === 'session';
     });
     totalTests += sessionTests.length;
     
     // Count page-level tests (multiply by estimated pages)
     const pageTests = enabledTestIds.filter(testId => {
-      const classification = TEST_CLASSIFICATIONS[testId];
+      const classification = testClassifications[testId];
       return classification?.scope === 'page';
     });
     
@@ -266,41 +273,25 @@ export class TestConfigManager {
   /**
    * Creates a default test configuration
    */
-  static createDefaultConfig(url: string): TestConfig {
-    const defaultTests: TestType[] = [
-      { id: 'screenshots', name: 'Screenshots', description: 'Capture screenshots across viewports', enabled: true },
-      { id: 'seo', name: 'SEO Scan', description: 'Analyze SEO elements', enabled: true },
-      { id: 'accessibility', name: 'Accessibility Scan', description: 'Check WCAG compliance', enabled: false },
-      { id: 'sitemap', name: 'Sitemap Generation', description: 'Generate XML sitemap', enabled: false },
-      { id: 'content-scraping', name: 'Content Scraping', description: 'Extract page content', enabled: false },
-      { id: 'site-summary', name: 'Site Summary', description: 'Generate site overview', enabled: false },
-      { id: 'api-key-scan', name: 'API Key Security Scan', description: 'Scan for exposed API keys', enabled: false }
-    ];
+  static async createDefaultConfig(url: string): Promise<TestConfig> {
+    const availableTests = await getAvailableTestsAsArray();
+    const viewports = await getViewportsAsArray();
+    const reporter = await getReporterConfig();
 
     return {
       url,
       crawlSite: true,
-      selectedTests: defaultTests,
-      viewports: [
-        { name: 'desktop', width: 1920, height: 1080 },
-        { name: 'tablet', width: 768, height: 1024 },
-        { name: 'mobile', width: 375, height: 667 }
-      ],
-      reporter: {
-        enabled: true,
-        type: 'html',
-        openBehavior: 'on-failure',
-        includeScreenshots: true,
-        includeDetailedLogs: false
-      }
+      selectedTests: availableTests.map(test => ({ ...test, enabled: false })),
+      viewports,
+      reporter
     };
   }
 
   /**
    * Merges partial configuration with defaults
    */
-  static mergeWithDefaults(partialConfig: Partial<TestConfig>, baseUrl: string): TestConfig {
-    const defaultConfig = this.createDefaultConfig(baseUrl);
+  static async mergeWithDefaults(partialConfig: Partial<TestConfig>, baseUrl: string): Promise<TestConfig> {
+    const defaultConfig = await this.createDefaultConfig(baseUrl);
     
     return {
       url: partialConfig.url || defaultConfig.url,

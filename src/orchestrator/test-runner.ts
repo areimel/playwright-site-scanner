@@ -15,6 +15,7 @@ import { ApiKeyTester } from '../lib/api-key-tester.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
+import { getExecutionConfig } from '../utils/config-loader.js';
 
 /**
  * Core test execution engine that handles all three phases of test execution.
@@ -125,9 +126,10 @@ export class TestRunner {
         }));
 
       if (sessionTasks.length > 0) {
+        const executionConfig = await getExecutionConfig();
         const sessionResults = await this.parallelExecutor.executeTasks(sessionTasks, {
           description: 'session tests',
-          maxConcurrency: 2
+          maxConcurrency: executionConfig.phases[1]?.maxConcurrency || 2
         });
         
         // Collect results
@@ -174,7 +176,7 @@ export class TestRunner {
       
       const unifiedResults = await this.parallelExecutor.executeTasks(unifiedPageTasks, {
         description: 'unified page analysis',
-        maxConcurrency: Math.min(phase2Plan.maxConcurrency, 3), // Slightly lower concurrency for page sessions
+        maxConcurrency: Math.min(phase2Plan.maxConcurrency, (await getExecutionConfig()).phases[2]?.maxConcurrency || 3),
         onProgress: (completed, total) => {
           this.uiStyler.displayTaskProgress(completed, total);
         }
@@ -214,9 +216,10 @@ export class TestRunner {
         }
       }));
 
+      const executionConfig = await getExecutionConfig();
       const sessionResults = await this.parallelExecutor.executeTasks(sessionTasks, {
         description: 'session tests',
-        maxConcurrency: 2
+        maxConcurrency: executionConfig.phases[1]?.maxConcurrency || 2
       });
       
       // Collect session test results
@@ -265,9 +268,10 @@ export class TestRunner {
         }
       }));
 
+      const executionConfig = await getExecutionConfig();
       const reportResults = await this.parallelExecutor.executeTasks(reportTasks, {
         description: 'reports',
-        maxConcurrency: 2
+        maxConcurrency: executionConfig.phases[3]?.maxConcurrency || 2
       });
       
       // Collect Phase 3 results
