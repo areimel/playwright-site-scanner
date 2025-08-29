@@ -3,9 +3,12 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getWelcomeScreen, getBanner } from './utils/ascii-art.js';
+import { displayQrCode } from './utils/qr-code.js';
 import { runWalkthrough } from './commands/walkthrough.js';
 import { TestOrchestrator } from './orchestrator/test-orchestrator.js';
 import { TestConfig } from './types/index.js';
+
+const qrCodeUrl = 'https://bio.alecreimel.com';
 
 const program = new Command();
 
@@ -21,6 +24,7 @@ program
     console.clear();
     console.log(getWelcomeScreen());
     console.log(getBanner());
+    await displayQrCode(qrCodeUrl);
     console.log(chalk.gray('Starting interactive walkthrough...\n'));
     
     try {
@@ -76,17 +80,24 @@ program
     }
   });
 
-// If no command is provided, show welcome screen and run walkthrough
-if (process.argv.length === 2) {
-  console.clear();
-  console.log(getWelcomeScreen());
-  console.log(getBanner());
-  console.log(chalk.gray('Starting interactive walkthrough...\n'));
-  
-  runWalkthrough().catch((error) => {
-    console.error(chalk.red('\n❌ An error occurred:'), error);
-    process.exit(1);
-  });
-} else {
-  program.parse();
+async function main() {
+  // If no command is provided, show welcome screen and run walkthrough
+  if (process.argv.length === 2) {
+    console.clear();
+    console.log(getWelcomeScreen());
+    console.log(getBanner());
+    await displayQrCode(qrCodeUrl);
+    console.log(chalk.gray('Starting interactive walkthrough...\n'));
+    
+    try {
+      await runWalkthrough();
+    } catch (error) {
+      console.error(chalk.red('\n❌ An error occurred:'), error);
+      process.exit(1);
+    }
+  } else {
+    program.parse();
+  }
 }
+
+main();

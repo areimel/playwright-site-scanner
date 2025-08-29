@@ -57,8 +57,6 @@ const VIEWPORTS: ViewportConfig[] = [
 ];
 
 export async function runWalkthrough(): Promise<void> {
-  console.log(chalk.blue('🌐 Let\'s set up your website testing session!\n'));
-
   // Step 1: Get URL
   const { url } = await inquirer.prompt([
     {
