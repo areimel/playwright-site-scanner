@@ -7,11 +7,11 @@
     "arda-site-scan": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc",
     "start": "node dist/cli.js",
     "dev": "npm run build && npm start",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf dist",
+    "clean": "rimraf arda-site-scan-sessions",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [

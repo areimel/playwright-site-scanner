@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Build and Run
-- `npm run build` - Compile TypeScript to `dist/` directory
+- `npm run build` - Clean and compile TypeScript to `dist/` directory
 - `npm start` - Run the CLI tool (starts interactive walkthrough)
 - `npm run dev` - Build and start in one command (development workflow)
-- `npm run clean` - Remove the `dist/` directory
+- `npm run clean` - Remove the `arda-site-scan-sessions/` directory
 
 ### Running the Tool
 The CLI defaults to interactive mode when run without arguments:
