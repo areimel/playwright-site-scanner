@@ -1,0 +1,224 @@
+# Arda Site Scanner Configuration
+# Single source of truth for all project settings
+
+# Application Metadata
+app:
+  name: "arda-site-scan"
+  displayName: "Arda Site Scan"
+  version: "1.0.1"
+  description: "A standalone CLI tool for comprehensive website analysis including screenshots, SEO, and accessibility testing using Playwright"
+  author: "Alec"
+  homepage: "https://github.com/areimel/playwright-site-scanner#readme"
+  repository: "https://github.com/areimel/playwright-site-scanner.git"
+  bugsUrl: "https://github.com/areimel/playwright-site-scanner/issues"
+
+# QR Code Configuration
+qrCode:
+  url: "https://bio.alecreimel.com"
+  message: "📱 Connect with the developer:"
+  enabled: true
+
+# CLI Branding
+branding:
+  welcomeScreen:
+    ascii: |
+      ╔═══════════════════════════════════════════════════════════════════════╗
+      ║                                                                       ║
+      ║   █████╗     ██████╗     ██████╗      █████╗                          ║             
+      ║  ██╔══██╗    ██╔══██╗    ██╔══██╗    ██╔══██╗                         ║             
+      ║  ███████║    ██████╔╝    ██║  ██║    ███████║                         ║             
+      ║  ██╔══██║    ██╔══██╗    ██║  ██║    ██╔══██║                         ║             
+      ║  ██║  ██║██╗ ██║  ██║██╗ ██████╔╝██╗ ██║  ██║██╗                      ║             
+      ║  ╚═╝  ╚═╝╚═╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝ ╚═╝  ╚═╝╚═╝                      ║
+      ║                                                                       ║
+      ║  ███████╗██╗████████╗███████╗    ███████╗ ██████╗ █████╗ ███╗   ██╗   ║
+      ║  ██╔════╝██║╚══██╔══╝██╔════╝    ██╔════╝██╔════╝██╔══██╗████╗  ██║   ║
+      ║  ███████╗██║   ██║   █████╗      ███████╗██║     ███████║██╔██╗ ██║   ║
+      ║  ╚════██║██║   ██║   ██╔══╝      ╚════██║██║     ██╔══██║██║╚██╗██║   ║
+      ║  ███████║██║   ██║   ███████╗    ███████║╚██████╗██║  ██║██║ ╚████║   ║
+      ║  ╚══════╝╚═╝   ╚═╝   ╚══════╝    ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝   ║
+      ║                                                                       ║
+      ╚═══════════════════════════════════════════════════════════════════════╝
+    color: "#FF8800"
+  
+  banner:
+    title: "Welcome to Arda Site Scan!"
+    subtitle: "Comprehensive website analysis with Playwright."
+    builtBy: "Built by: Alec Reimel, Advanced Research & Development Agency"
+    moreTools: "Find more tools at: https://advancedresearch.dev"
+    color: "#FF8800"
+
+# Available Tests Configuration
+tests:
+  screenshots:
+    id: "screenshots"
+    name: "Screenshots"
+    description: "Capture screenshots across different viewports"
+    enabled: false
+    phase: 2
+    scope: "page"
+    executionOrder: 4
+    dependencies: []
+    conflictsWith: ["accessibility"]
+    resourceIntensive: true
+    outputType: "per-page"
+
+  seo:
+    id: "seo"
+    name: "SEO Scan"
+    description: "Analyze SEO elements (meta tags, headings, etc.)"
+    enabled: false
+    phase: 2
+    scope: "page"
+    executionOrder: 2
+    dependencies: []
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "per-page"
+
+  accessibility:
+    id: "accessibility"
+    name: "Accessibility Scan"
+    description: "Check for accessibility issues and WCAG compliance"
+    enabled: false
+    phase: 2
+    scope: "page"
+    executionOrder: 3
+    dependencies: []
+    conflictsWith: ["screenshots"]
+    resourceIntensive: true
+    outputType: "per-page"
+
+  sitemap:
+    id: "sitemap"
+    name: "Sitemap Generation"
+    description: "Generate XML sitemap for search engine submission"
+    enabled: false
+    phase: 1
+    scope: "session"
+    executionOrder: 2
+    dependencies: ["site-crawling"]
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "site-wide"
+
+  content-scraping:
+    id: "content-scraping"
+    name: "Content Scraping"
+    description: "Extract page content and images to markdown files"
+    enabled: false
+    phase: 2
+    scope: "page"
+    executionOrder: 1
+    dependencies: ["site-crawling"]
+    conflictsWith: []
+    resourceIntensive: true
+    outputType: "per-page"
+
+  site-summary:
+    id: "site-summary"
+    name: "Site Summary"
+    description: "Generate comprehensive site overview report"
+    enabled: false
+    phase: 3
+    scope: "session"
+    executionOrder: 1
+    dependencies: ["content-scraping"]
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "site-wide"
+
+  api-key-scan:
+    id: "api-key-scan"
+    name: "API Key Security Scan"
+    description: "Scan site for exposed API keys and security tokens"
+    enabled: false
+    phase: 2
+    scope: "session"
+    executionOrder: 4
+    dependencies: []
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "site-wide"
+
+  site-crawling:
+    id: "site-crawling"
+    name: "Site Crawling"
+    description: "Discover all pages on the website"
+    enabled: true
+    phase: 1
+    scope: "session"
+    executionOrder: 1
+    dependencies: []
+    conflictsWith: []
+    resourceIntensive: true
+    outputType: "site-wide"
+
+# Viewport Configurations
+viewports:
+  desktop:
+    name: "desktop"
+    width: 1920
+    height: 1080
+    
+  tablet:
+    name: "tablet"
+    width: 768
+    height: 1024
+    
+  mobile:
+    name: "mobile"
+    width: 375
+    height: 667
+
+# Reporter Configuration
+reporter:
+  enabled: true
+  type: "html"
+  openBehavior: "always"
+  includeScreenshots: true
+  includeDetailedLogs: true
+
+# Execution Settings
+execution:
+  phases:
+    1:
+      name: "Site Discovery"
+      description: "Site crawling and sitemap generation (session-level operations)"
+      maxConcurrency: 3
+      
+    2:
+      name: "Unified Page Analysis"
+      description: "Content scraping, SEO, accessibility, and screenshot testing in single page sessions"
+      maxConcurrency: 5
+      
+    3:
+      name: "Report Generation"
+      description: "Site summaries, aggregated reports, and final analysis"
+      maxConcurrency: 2
+
+  crawling:
+    maxPages: 50
+    waitForNetworkIdle: true
+    
+  browser:
+    headless: true
+    disableSandbox: true
+
+# CLI Configuration
+cli:
+  commands:
+    start:
+      description: "Start the interactive walkthrough"
+      
+    scan:
+      description: "Run automated scan with all tests enabled"
+      options:
+        crawl:
+          description: "Test single page only (default: crawl entire site)"
+          default: true
+
+# Default Values
+defaults:
+  url: "https://example.com"
+  crawlSite: true

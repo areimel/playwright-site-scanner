@@ -7,11 +7,11 @@
     "arda-site-scan": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc",
     "start": "node dist/cli.js",
     "dev": "npm run build && npm start",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf dist",
+    "clean": "rimraf arda-site-scan-sessions",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
@@ -48,19 +48,23 @@
     "url": "https://github.com/areimel/playwright-site-scanner/issues"
   },
   "dependencies": {
+    "@types/js-yaml": "^4.0.9",
     "chalk": "^5.4.1",
     "cli-progress": "^3.12.0",
     "commander": "^14.0.0",
     "crawlee": "^3.13.10",
     "inquirer": "^12.8.2",
+    "js-yaml": "^4.1.0",
     "log-update": "^6.1.0",
     "ora": "^8.2.0",
     "playwright": "^1.54.1",
+    "qrcode": "^1.5.4",
     "supports-color": "^9.4.0"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.8",
     "@types/node": "^24.1.0",
+    "@types/qrcode": "^1.5.5",
     "rimraf": "^6.0.1",
     "typescript": "^5.8.3"
   }

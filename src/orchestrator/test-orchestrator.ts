@@ -76,14 +76,14 @@ export class TestOrchestrator {
 
     try {
       // 1. Validate configuration
-      const configValidation = TestConfigManager.validateConfig(config);
+      const configValidation = await TestConfigManager.validateConfig(config);
       if (!configValidation.valid) {
         throw new Error(`Configuration validation failed: ${configValidation.errors.join(', ')}`);
       }
 
       // 2. Display configuration and execution strategy
       this.uiStyler.displayInitialization('Initializing browser and execution strategy...');
-      const executionStrategy = TestConfigManager.processExecutionStrategy(config);
+      const executionStrategy = await TestConfigManager.processExecutionStrategy(config);
       this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
 
       // 2.5. Create session progress tracker (needs to know page count, so after strategy processing)

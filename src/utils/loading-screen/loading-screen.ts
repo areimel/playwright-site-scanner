@@ -12,6 +12,7 @@ export interface LoadingScreenOptions {
   loadingText?: LoadingTextOptions;
   showInfo?: boolean;
   showProgress?: boolean;
+  showKeyboardShortcuts?: boolean;
   progressTracker?: SessionProgressTracker | null;
 }
 
@@ -66,6 +67,7 @@ export class LoadingScreen {
       updateInterval: 100, // 100ms for smooth updates
       showInfo: true,
       showProgress: true,
+      showKeyboardShortcuts: true,
       ...options
     };
 
@@ -341,6 +343,15 @@ export class LoadingScreen {
       }
     }
 
+    // Keyboard shortcuts (if enabled)
+    if (this.options.showKeyboardShortcuts) {
+      const shortcutsText = this.renderKeyboardShortcuts();
+      if (shortcutsText) {
+        lines.push('');  // Add blank line for separation
+        lines.push(shortcutsText);
+      }
+    }
+
     const currentRender = lines.join('\n');
 
     // Only update if content has changed (reduces flicker)
@@ -396,6 +407,21 @@ export class LoadingScreen {
    */
   setProgressTracker(tracker: SessionProgressTracker): void {
     this.progressTracker = tracker;
+  }
+
+  /**
+   * Render keyboard shortcuts section
+   */
+  private renderKeyboardShortcuts(): string {
+    const shortcuts = [
+      { key: 'Ctrl+C', description: 'Exit cleanly' }
+    ];
+
+    const shortcutText = shortcuts
+      .map(shortcut => `${chalk.cyan(shortcut.key)} ${chalk.gray('–')} ${chalk.white(shortcut.description)}`)
+      .join('  ');
+    
+    return `${chalk.gray('Keyboard shortcuts:')} ${shortcutText}`;
   }
 
   /**

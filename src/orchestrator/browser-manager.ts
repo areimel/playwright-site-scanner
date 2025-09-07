@@ -1,5 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import chalk from 'chalk';
+import { getExecutionConfig } from '../utils/config-loader.js';
 
 /**
  * Manages browser lifecycle for the test orchestrator
@@ -11,13 +12,20 @@ export class BrowserManager {
 
   /**
    * Initialize the Chromium browser with the required configuration
-   * Uses headless mode with no-sandbox and disable-setuid-sandbox for compatibility
+   * Uses configuration from project-config.yaml
    */
   async initializeBrowser(): Promise<void> {
     try {
+      const executionConfig = await getExecutionConfig();
+      const browserArgs = ['--no-sandbox'];
+      
+      if (executionConfig.browser.disableSandbox) {
+        browserArgs.push('--disable-setuid-sandbox');
+      }
+      
       this.browser = await chromium.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        headless: executionConfig.browser.headless,
+        args: browserArgs
       });
       this.isInitialized = true;
     } catch (error) {
