@@ -11,6 +11,29 @@ import { getAppConfig, getQRConfig, getCLIConfig, getDefaultsConfig, getAvailabl
 
 const program = new Command();
 
+// Global cleanup function to ensure clean exits
+let isExiting = false;
+function setupGracefulExit() {
+  process.on('SIGINT', () => {
+    if (isExiting) {
+      return; // Prevent multiple exit handlers
+    }
+    
+    isExiting = true;
+    
+    // Clear any loading screens or UI elements
+    process.stdout.write('\n');
+    process.stdout.write(chalk.yellow('🛑 Received exit signal (Ctrl+C)') + '\n');
+    process.stdout.write(chalk.gray('Cleaning up and exiting gracefully...') + '\n');
+    
+    // Give a moment for cleanup, then exit cleanly
+    setTimeout(() => {
+      process.stdout.write(chalk.green('✅ Goodbye!') + '\n');
+      process.exit(0);
+    }, 100);
+  });
+}
+
 // Initialize CLI from config
 async function initializeCLI() {
   const appConfig = await getAppConfig();
@@ -81,6 +104,9 @@ async function setupCommands() {
 }
 
 async function main() {
+  // Set up clean exit handling for Ctrl+C
+  setupGracefulExit();
+  
   try {
     await setupCommands();
     
