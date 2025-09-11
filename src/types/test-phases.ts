@@ -1,7 +1,7 @@
 import { TestConfig } from './index.js';
 import { getTestClassifications, getPhaseDefinitions } from '../utils/config-loader.js';
 
-export type TestPhase = 1 | 2 | 3;
+export type TestPhase = 1 | 2 | 3 | 4;
 
 export type TestScope = 'session' | 'page';
 
@@ -125,7 +125,7 @@ export class TestPhaseManager {
       });
     }
 
-    // Phase 3: Report Generation
+    // Phase 3: Screenshot Testing
     const phase3Tests = selectedTestIds.filter(testId => 
       testClassifications[testId]?.phase === 3
     );
@@ -147,7 +147,33 @@ export class TestPhaseManager {
         phase: 3,
         sessionTests,
         pageTests,
-        maxConcurrency: 2 // Lower for report generation
+        maxConcurrency: 2 // Conservative for screenshot testing
+      });
+    }
+
+    // Phase 4: Final Analysis & Report Generation
+    const phase4Tests = selectedTestIds.filter(testId => 
+      testClassifications[testId]?.phase === 4
+    );
+    
+    if (phase4Tests.length > 0) {
+      const sessionTests: string[] = [];
+      const pageTests: string[] = [];
+      
+      phase4Tests.forEach(testId => {
+        const classification = testClassifications[testId];
+        if (classification.scope === 'session') {
+          sessionTests.push(testId);
+        } else {
+          pageTests.push(testId);
+        }
+      });
+
+      phases.push({
+        phase: 4,
+        sessionTests,
+        pageTests,
+        maxConcurrency: 2 // Lower for final analysis and report generation
       });
     }
 
@@ -241,12 +267,16 @@ export class TestPhaseManager {
         recommendedConcurrency = Math.max(2, 5 - resourceIntensiveTests.length);
         break;
       case 2:
-        // Analysis phase - can be more aggressive
+        // Page analysis phase - can be more aggressive
         recommendedConcurrency = Math.max(3, 7 - resourceIntensiveTests.length);
         break;
       case 3:
-        // Report generation - usually lightweight
-        recommendedConcurrency = 3;
+        // Screenshot testing phase - very conservative due to resource intensity
+        recommendedConcurrency = Math.max(1, 3 - resourceIntensiveTests.length);
+        break;
+      case 4:
+        // Final analysis and report generation - lightweight
+        recommendedConcurrency = 2;
         break;
     }
     

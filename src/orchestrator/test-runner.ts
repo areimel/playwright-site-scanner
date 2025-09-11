@@ -241,21 +241,117 @@ export class TestRunner {
   }
 
   /**
-   * Phase 3: Report Generation & Finalization
-   * - Site summary using real scraped content
-   * - Session reports and statistics
+   * Phase 3: Dedicated Screenshot Testing  
+   * - Screenshots isolated from other tests to prevent conflicts
    */
   async executePhase3(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
     const phase3Plan = strategy.phases.find(p => p.phase === 3);
-    if (!phase3Plan) return;
+    if (!phase3Plan || (phase3Plan.pageTests.length === 0 && phase3Plan.sessionTests.length === 0)) return;
 
-    this.uiStyler.displayPhaseStart(3, 'Report Generation & Finalization');
+    this.uiStyler.displayPhaseStart(3, 'Dedicated Screenshot Testing');
+    
+    const urls = this.dataManager.getUrls();
+    const pageTests = phase3Plan.pageTests;
+    
+    this.uiStyler.displayProgress(`📸 Processing ${urls.length} pages for screenshot testing...`);
 
-    // Execute session-level tests (like site summary)
-    if (phase3Plan.sessionTests.length > 0) {
-      this.uiStyler.displayProgress(`📋 Generating ${phase3Plan.sessionTests.length} reports...`);
+    // Create dedicated screenshot tasks - isolated from other tests
+    if (pageTests.includes('screenshots')) {
+      const screenshotTasks = urls.map(url => ({
+        id: `screenshots-${url}`,
+        name: `Screenshots for ${new URL(url).pathname}`,
+        execute: async () => {
+          return await this.processPageScreenshots(url, config);
+        }
+      }));
+
+      this.uiStyler.displayTaskExecution('dedicated screenshot sessions', screenshotTasks.length);
       
-      const reportTasks = phase3Plan.sessionTests.map(testId => ({
+      const executionConfig = await getExecutionConfig();
+      const screenshotResults = await this.parallelExecutor.executeTasks(screenshotTasks, {
+        description: 'screenshot testing',
+        maxConcurrency: Math.min(phase3Plan.maxConcurrency, executionConfig.phases[3]?.maxConcurrency || 2),
+        onProgress: (completed, total) => {
+          this.uiStyler.displayTaskProgress(completed, total);
+        }
+      });
+      
+      // Collect all screenshot results
+      screenshotResults.successful.forEach(taskResult => {
+        const pageResults = taskResult.result as TestResult[];
+        pageResults.forEach(result => {
+          this.allTestResults.push(result);
+        });
+      });
+
+      // Handle any failed screenshot tasks
+      screenshotResults.failed.forEach(taskResult => {
+        this.errorHandler.captureError(taskResult.error, `screenshot-processing-${taskResult.id}`);
+        this.errorHandler.logPageProcessingError(taskResult.id, taskResult.error);
+        this.dataManager.addError(`screenshot-processing-${taskResult.id}`, taskResult.error);
+      });
+    }
+
+    this.dataManager.markPhaseComplete(3);
+    this.uiStyler.displayPhaseComplete(3);
+  }
+
+  /**
+   * Phase 4: Final Analysis & Report Generation
+   * - Accessibility testing, site summaries, aggregated reports, final analysis
+   */
+  async executePhase4(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
+    const phase4Plan = strategy.phases.find(p => p.phase === 4);
+    if (!phase4Plan) return;
+
+    this.uiStyler.displayPhaseStart(4, 'Final Analysis & Report Generation');
+    
+    const urls = this.dataManager.getUrls();
+    const pageTests = phase4Plan.pageTests;
+    const sessionTests = phase4Plan.sessionTests;
+
+    // Execute page-level tests (like accessibility)
+    if (pageTests.length > 0) {
+      const pageTestTasks = urls.map(url => ({
+        id: `final-analysis-${url}`,
+        name: `Final analysis for ${new URL(url).pathname}`,
+        execute: async () => {
+          return await this.processPageFinalAnalysis(url, pageTests, config);
+        }
+      }));
+
+      this.uiStyler.displayTaskExecution('final analysis sessions', pageTestTasks.length);
+      
+      const executionConfig = await getExecutionConfig();
+      const pageResults = await this.parallelExecutor.executeTasks(pageTestTasks, {
+        description: 'final page analysis',
+        maxConcurrency: Math.min(phase4Plan.maxConcurrency, executionConfig.phases[4]?.maxConcurrency || 2),
+        onProgress: (completed, total) => {
+          this.uiStyler.displayTaskProgress(completed, total);
+        }
+      });
+      
+      // Collect page test results
+      pageResults.successful.forEach(taskResult => {
+        const testResults = taskResult.result as TestResult[];
+        testResults.forEach(result => {
+          this.allTestResults.push(result);
+        });
+      });
+
+      // Handle failed page tasks
+      pageResults.failed.forEach(taskResult => {
+        this.errorHandler.captureError(taskResult.error, `final-analysis-${taskResult.id}`);
+        this.errorHandler.logPageProcessingError(taskResult.id, taskResult.error);
+        this.dataManager.addError(`final-analysis-${taskResult.id}`, taskResult.error);
+      });
+    }
+    
+    // Execute session-level tests (like site summary)
+    if (sessionTests.length > 0) {
+      this.uiStyler.displayProgress(`📋 Generating ${sessionTests.length} reports...`);
+      
+      const reportTasks = sessionTests.map(testId => ({
         id: testId,
         name: this.getTestName(testId),
         execute: async () => {
@@ -271,17 +367,17 @@ export class TestRunner {
       const executionConfig = await getExecutionConfig();
       const reportResults = await this.parallelExecutor.executeTasks(reportTasks, {
         description: 'reports',
-        maxConcurrency: executionConfig.phases[3]?.maxConcurrency || 2
+        maxConcurrency: executionConfig.phases[4]?.maxConcurrency || 2
       });
       
-      // Collect Phase 3 results
+      // Collect Phase 4 results
       reportResults.successful.forEach(result => {
         this.allTestResults.push(result.result as TestResult);
       });
     }
 
-    this.dataManager.markPhaseComplete(3);
-    this.uiStyler.displayPhaseComplete(3);
+    this.dataManager.markPhaseComplete(4);
+    this.uiStyler.displayPhaseComplete(4);
   }
 
   /**
@@ -338,41 +434,117 @@ export class TestRunner {
         results.push(...parallelResults);
       }
 
-      // Group 2: Run accessibility test (viewport sensitive)
-      if (testGroups.accessibility.length > 0) {
-        try {
-          this.uiStyler.displayTestProgress('♿ Accessibility scan');
-          const accessibilityResult = await this.accessibilityTester.runAccessibilityScan(page, url, this.dataManager.sessionId);
-          results.push(accessibilityResult);
-        } catch (error) {
-          this.errorHandler.captureError(error, 'accessibility test');
-          this.errorHandler.logTestError('accessibility', error);
-          results.push(this.errorHandler.createFailedTestResult('accessibility', error));
-        }
+      // Group 2: Accessibility tests are now handled in dedicated Phase 4 - removed from unified processing
+      // This eliminates conflicts with other tests and provides cleaner isolation
+
+      // Group 3: Screenshots are now handled in dedicated Phase 3 - removed from unified processing
+      // This eliminates viewport conflicts and resource contention
+
+      const totalTests = results.length;
+      const successfulTests = results.filter(r => r.status === 'success').length;
+      this.uiStyler.displayPageComplete(url, totalTests, successfulTests);
+      return results;
+
+    } catch (error) {
+      this.errorHandler.captureError(error, `Page load for ${url}`);
+      this.errorHandler.logPageLoadError(url, error);
+      // Return failed results for all enabled tests
+      return this.errorHandler.createFailedTestResultsForPage(enabledTests, error);
+
+    } finally {
+      if (page) {
+        await page.close();
+      }
+    }
+  }
+
+  /**
+   * Process a single page for dedicated screenshot testing only
+   * Used in Phase 3 to isolate screenshot tests from other tests
+   */
+  async processPageScreenshots(url: string, config: TestConfig): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+    let page: Page | null = null;
+
+    try {
+      this.uiStyler.displayProgress(`📸 Loading page for screenshots: ${new URL(url).pathname}`);
+      page = await this.browserManager.createPage();
+      
+      await page.goto(url, { waitUntil: 'networkidle' });
+
+      // Run ONLY screenshot tests - no other conflicting tests
+      this.uiStyler.displayTestProgress(`📸 Screenshots across ${config.viewports.length} viewports in isolation`);
+      
+      try {
+        // Use ParallelExecutor's executeScreenshotTests for dedicated viewport processing
+        const screenshotResults = await this.parallelExecutor.executeScreenshotTests(
+          page!, 
+          url, 
+          config.viewports, 
+          this.dataManager.sessionId, 
+          this.screenshotTester
+        );
+        results.push(...screenshotResults);
+      } catch (error) {
+        this.errorHandler.captureError(error, 'screenshot tests');
+        this.errorHandler.logScreenshotError('all viewports', error);
+        // Create failed results for all viewports
+        const failedResults = config.viewports.map(viewport => 
+          this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
+        );
+        results.push(...failedResults);
       }
 
-      // Group 3: Run screenshot tests with parallel viewport processing using separate page contexts
-      if (testGroups.screenshots.length > 0) {
-        this.uiStyler.displayTestProgress(`📸 Screenshots across ${config.viewports.length} viewports in parallel`);
-        
+      const totalTests = results.length;
+      const successfulTests = results.filter(r => r.status === 'success').length;
+      this.uiStyler.displayPageComplete(url, totalTests, successfulTests);
+      return results;
+
+    } catch (error) {
+      this.errorHandler.captureError(error, `Screenshot page load for ${url}`);
+      this.errorHandler.logPageLoadError(url, error);
+      // Return failed results for all viewports
+      return config.viewports.map(viewport => 
+        this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
+      );
+
+    } finally {
+      if (page) {
+        await page.close();
+      }
+    }
+  }
+
+  /**
+   * Process a single page for final analysis tests (like accessibility)
+   * Used in Phase 4 for non-conflicting final analysis
+   */
+  async processPageFinalAnalysis(url: string, enabledTests: string[], config: TestConfig): Promise<TestResult[]> {
+    const results: TestResult[] = [];
+    let page: Page | null = null;
+
+    try {
+      this.uiStyler.displayProgress(`🔍 Loading page for final analysis: ${new URL(url).pathname}`);
+      page = await this.browserManager.createPage();
+      
+      await page.goto(url, { waitUntil: 'networkidle' });
+
+      // Run final analysis tests (like accessibility)
+      for (const testType of enabledTests) {
         try {
-          // Use ParallelExecutor's executeScreenshotTests to avoid viewport conflicts
-          const screenshotResults = await this.parallelExecutor.executeScreenshotTests(
-            page!, 
-            url, 
-            config.viewports, 
-            this.dataManager.sessionId, 
-            this.screenshotTester
-          );
-          results.push(...screenshotResults);
+          switch (testType) {
+            case 'accessibility':
+              this.uiStyler.displayTestProgress('♿ Accessibility analysis');
+              const accessibilityResult = await this.accessibilityTester.runAccessibilityScan(page!, url, this.dataManager.sessionId);
+              results.push(accessibilityResult);
+              break;
+            default:
+              throw new Error(`Unknown final analysis test type: ${testType}`);
+          }
         } catch (error) {
-          this.errorHandler.captureError(error, 'screenshot tests');
-          this.errorHandler.logScreenshotError('all viewports', error);
-          // Create failed results for all viewports
-          const failedResults = config.viewports.map(viewport => 
-            this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
-          );
-          results.push(...failedResults);
+          this.errorHandler.captureError(error, `${testType} test`);
+          this.errorHandler.logTestError(testType, error);
+          results.push(this.errorHandler.createFailedTestResult(testType, error));
         }
       }
 
@@ -382,7 +554,7 @@ export class TestRunner {
       return results;
 
     } catch (error) {
-      this.errorHandler.captureError(error, `Page load for ${url}`);
+      this.errorHandler.captureError(error, `Final analysis page load for ${url}`);
       this.errorHandler.logPageLoadError(url, error);
       // Return failed results for all enabled tests
       return this.errorHandler.createFailedTestResultsForPage(enabledTests, error);

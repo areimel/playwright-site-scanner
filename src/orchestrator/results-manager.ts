@@ -113,38 +113,14 @@ export class ResultsManager {
   }
 
   /**
-   * Consolidate multiple screenshot test results into a single result to prevent duplicates in HTML reports
+   * Process screenshot test results to maintain individual viewport results
+   * This replaces consolidation to ensure all viewport failures are visible
    */
-  private consolidateScreenshotTests(tests: TestResult[]): TestResult[] {
-    const screenshotTests = tests.filter(test => test.testType === 'screenshots');
-    const nonScreenshotTests = tests.filter(test => test.testType !== 'screenshots');
-    
-    // If no screenshot tests or only one, no consolidation needed
-    if (screenshotTests.length <= 1) {
-      return tests;
-    }
-    
-    // Find the screenshot test with the earliest start time and use it as the primary one
-    const primaryScreenshotTest = screenshotTests.reduce((earliest, current) => {
-      return current.startTime < earliest.startTime ? current : earliest;
-    });
-    
-    // Calculate total duration from all screenshot tests
-    const totalDuration = screenshotTests.reduce((total, test) => {
-      if (test.endTime && test.startTime) {
-        return total + (test.endTime.getTime() - test.startTime.getTime());
-      }
-      return total;
-    }, 0);
-    
-    // Update the primary test to reflect the consolidated nature
-    const consolidatedScreenshotTest: TestResult = {
-      ...primaryScreenshotTest,
-      endTime: primaryScreenshotTest.endTime ? new Date(primaryScreenshotTest.startTime.getTime() + totalDuration) : primaryScreenshotTest.endTime
-    };
-    
-    // Return non-screenshot tests plus the single consolidated screenshot test
-    return [...nonScreenshotTests, consolidatedScreenshotTest];
+  private processScreenshotTests(tests: TestResult[]): TestResult[] {
+    // Return all tests as-is - no consolidation to preserve individual viewport results
+    // This ensures that desktop, tablet, and mobile screenshot failures are all visible
+    // in session summaries and HTML reports
+    return tests;
   }
 
   /**
@@ -165,14 +141,14 @@ export class ResultsManager {
         this.testBelongsToPage(result, pageName)
       );
       
-      // Consolidate screenshot test results to prevent duplicates
-      const consolidatedTests = this.consolidateScreenshotTests(pageTests);
+      // Process screenshot test results to preserve individual viewport failures
+      const processedTests = this.processScreenshotTests(pageTests);
       
       const pageResult: PageResult = {
         url,
         pageName,
-        tests: consolidatedTests,
-        summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${consolidatedTests.length}`
+        tests: processedTests,
+        summary: `Page: ${url}\nTitle: ${metrics?.title || content?.title || 'Unknown'}\nWord count: ${metrics?.wordCount || 0}\nTests run: ${processedTests.length}`
       };
       
       pageResults.push(pageResult);

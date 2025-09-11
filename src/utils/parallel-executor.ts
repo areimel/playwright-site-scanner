@@ -320,6 +320,7 @@ export class ParallelExecutor {
 
   /**
    * Execute screenshot tests across multiple viewports in parallel
+   * Fixed to return BOTH successful and failed results
    */
   async executeScreenshotTests(
     page: Page,
@@ -335,7 +336,11 @@ export class ParallelExecutor {
         // Create a new page for each viewport to avoid conflicts
         const viewportPage = await this.browser.newPage();
         try {
-          await viewportPage.goto(url, { waitUntil: 'networkidle' });
+          // Add timeout to prevent hanging on slow pages
+          await viewportPage.goto(url, { 
+            waitUntil: 'networkidle', 
+            timeout: 30000 // 30 second timeout
+          });
           return await screenshotTester.captureScreenshot(viewportPage, url, viewport, sessionId);
         } finally {
           await viewportPage.close();
@@ -344,11 +349,37 @@ export class ParallelExecutor {
     }));
 
     const result = await this.executeTasks(tasks, {
-      maxConcurrency: viewports.length, // All viewports can run simultaneously
+      maxConcurrency: Math.min(2, viewports.length), // Limit concurrency to prevent resource exhaustion
       description: 'screenshots'
     });
 
-    return result.successful.map(s => s.result);
+    // CRITICAL FIX: Return ALL results (both successful AND failed)
+    // Convert failed tasks to proper TestResult objects
+    const allResults: TestResult[] = [
+      ...result.successful.map(s => s.result),
+      ...result.failed.map(f => this.createFailedTestResult(f, viewports))
+    ];
+
+    return allResults;
+  }
+
+  /**
+   * Create a failed TestResult from a failed task
+   */
+  private createFailedTestResult(
+    failedTask: { id: string; error: string }, 
+    viewports: Array<{ name: string; width: number; height: number }>
+  ): TestResult {
+    // Extract viewport name from task ID
+    const viewportName = failedTask.id.replace('screenshot-', '');
+    
+    return {
+      testType: `screenshots-${viewportName}`,
+      status: 'failed' as const,
+      startTime: new Date(),
+      endTime: new Date(),
+      error: `Screenshot failed for ${viewportName} viewport: ${failedTask.error}`
+    };
   }
 
   /**

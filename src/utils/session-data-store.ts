@@ -30,6 +30,7 @@ export interface SessionDataStore {
   phase1Complete: boolean;
   phase2Complete: boolean;
   phase3Complete: boolean;
+  phase4Complete: boolean;
   
   // Error tracking
   errors: Map<string, string[]>;
@@ -49,6 +50,7 @@ export class SessionDataManager {
       phase1Complete: false,
       phase2Complete: false,
       phase3Complete: false,
+      phase4Complete: false,
       errors: new Map()
     };
   }
@@ -119,7 +121,7 @@ export class SessionDataManager {
   }
 
   // Phase tracking
-  markPhaseComplete(phase: 1 | 2 | 3): void {
+  markPhaseComplete(phase: 1 | 2 | 3 | 4): void {
     switch (phase) {
       case 1:
         this.data.phase1Complete = true;
@@ -130,10 +132,13 @@ export class SessionDataManager {
       case 3:
         this.data.phase3Complete = true;
         break;
+      case 4:
+        this.data.phase4Complete = true;
+        break;
     }
   }
 
-  isPhaseComplete(phase: 1 | 2 | 3): boolean {
+  isPhaseComplete(phase: 1 | 2 | 3 | 4): boolean {
     switch (phase) {
       case 1:
         return this.data.phase1Complete;
@@ -141,6 +146,8 @@ export class SessionDataManager {
         return this.data.phase2Complete;
       case 3:
         return this.data.phase3Complete;
+      case 4:
+        return this.data.phase4Complete;
       default:
         return false;
     }
@@ -318,6 +325,7 @@ export class SessionDataManager {
     phase1Complete: boolean;
     phase2Complete: boolean;
     phase3Complete: boolean;
+    phase4Complete: boolean;
   } {
     return {
       totalUrls: this.data.urls.length,
@@ -326,7 +334,8 @@ export class SessionDataManager {
       totalErrors: Array.from(this.data.errors.values()).flat().length,
       phase1Complete: this.data.phase1Complete,
       phase2Complete: this.data.phase2Complete,
-      phase3Complete: this.data.phase3Complete
+      phase3Complete: this.data.phase3Complete,
+      phase4Complete: this.data.phase4Complete
     };
   }
 }
