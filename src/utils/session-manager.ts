@@ -97,33 +97,73 @@ export class SessionManager {
     const successCount = pageResult.tests.filter(t => t.status === 'success').length;
     const failCount = pageResult.tests.filter(t => t.status === 'failed').length;
     
+    // Group screenshot tests by viewport for better display
+    const screenshotTests = pageResult.tests.filter(t => t.testType.startsWith('screenshots-'));
+    const otherTests = pageResult.tests.filter(t => !t.testType.startsWith('screenshots-'));
+    
     let markdown = `# Page Test Summary: ${pageResult.pageName}\n\n`;
     markdown += `**URL:** ${pageResult.url}\n`;
     markdown += `**Tests Completed:** ${pageResult.tests.length}\n`;
     markdown += `**Successful:** ${successCount}\n`;
     markdown += `**Failed:** ${failCount}\n\n`;
     
-    markdown += `## Test Results\n\n`;
+    // Show screenshot results grouped by viewport
+    if (screenshotTests.length > 0) {
+      markdown += `## Screenshot Tests\n\n`;
+      
+      const viewports = ['desktop', 'tablet', 'mobile'];
+      for (const viewport of viewports) {
+        const viewportTest = screenshotTests.find(t => t.testType === `screenshots-${viewport}`);
+        if (viewportTest) {
+          const status = viewportTest.status === 'success' ? '✅' : '❌';
+          const duration = viewportTest.endTime && viewportTest.startTime 
+            ? Math.round((viewportTest.endTime.getTime() - viewportTest.startTime.getTime()) / 1000)
+            : 0;
+          
+          markdown += `### ${status} ${viewport.charAt(0).toUpperCase() + viewport.slice(1)} Screenshot\n`;
+          markdown += `- **Status:** ${viewportTest.status}\n`;
+          markdown += `- **Duration:** ${duration}s\n`;
+          
+          if (viewportTest.outputPath) {
+            markdown += `- **Output:** [${path.basename(viewportTest.outputPath)}](${viewportTest.outputPath})\n`;
+          }
+          
+          if (viewportTest.error) {
+            markdown += `- **Error:** ${viewportTest.error}\n`;
+          }
+          
+          markdown += '\n';
+        } else {
+          markdown += `### ❌ ${viewport.charAt(0).toUpperCase() + viewport.slice(1)} Screenshot\n`;
+          markdown += `- **Status:** Not executed\n\n`;
+        }
+      }
+    }
     
-    for (const test of pageResult.tests) {
-      const status = test.status === 'success' ? '✅' : '❌';
-      const duration = test.endTime && test.startTime 
-        ? Math.round((test.endTime.getTime() - test.startTime.getTime()) / 1000)
-        : 0;
+    // Show other test results
+    if (otherTests.length > 0) {
+      markdown += `## Other Test Results\n\n`;
       
-      markdown += `### ${status} ${test.testType}\n`;
-      markdown += `- **Status:** ${test.status}\n`;
-      markdown += `- **Duration:** ${duration}s\n`;
-      
-      if (test.outputPath) {
-        markdown += `- **Output:** [${path.basename(test.outputPath)}](${test.outputPath})\n`;
+      for (const test of otherTests) {
+        const status = test.status === 'success' ? '✅' : '❌';
+        const duration = test.endTime && test.startTime 
+          ? Math.round((test.endTime.getTime() - test.startTime.getTime()) / 1000)
+          : 0;
+        
+        markdown += `### ${status} ${test.testType}\n`;
+        markdown += `- **Status:** ${test.status}\n`;
+        markdown += `- **Duration:** ${duration}s\n`;
+        
+        if (test.outputPath) {
+          markdown += `- **Output:** [${path.basename(test.outputPath)}](${test.outputPath})\n`;
+        }
+        
+        if (test.error) {
+          markdown += `- **Error:** ${test.error}\n`;
+        }
+        
+        markdown += '\n';
       }
-      
-      if (test.error) {
-        markdown += `- **Error:** ${test.error}\n`;
-      }
-      
-      markdown += '\n';
     }
     
     return markdown;
@@ -156,6 +196,37 @@ export class SessionManager {
       markdown += '\n';
     }
     
+    // Add screenshot-specific overview
+    const allTests = pageResults.flatMap(p => p.tests);
+    const screenshotTests = allTests.filter(t => t.testType.startsWith('screenshots-'));
+    if (screenshotTests.length > 0) {
+      markdown += `## Screenshot Test Summary\n\n`;
+      
+      const viewports = ['desktop', 'tablet', 'mobile'];
+      for (const viewport of viewports) {
+        const viewportTests = screenshotTests.filter(t => t.testType === `screenshots-${viewport}`);
+        const successful = viewportTests.filter(t => t.status === 'success').length;
+        const failed = viewportTests.filter(t => t.status === 'failed').length;
+        const total = viewportTests.length;
+        
+        if (total > 0) {
+          const successRate = Math.round((successful / total) * 100);
+          const status = failed === 0 ? '✅' : '❌';
+          
+          markdown += `- **${status} ${viewport.charAt(0).toUpperCase() + viewport.slice(1)}:** ${successful}/${total} successful (${successRate}%)\n`;
+          
+          if (failed > 0) {
+            const failedPages = pageResults.filter(p => 
+              p.tests.some(t => t.testType === `screenshots-${viewport}` && t.status === 'failed')
+            ).map(p => p.pageName);
+            
+            markdown += `  - Failed on: ${failedPages.join(', ')}\n`;
+          }
+        }
+      }
+      markdown += '\n';
+    }
+
     markdown += `## Page Results\n\n`;
     for (const pageResult of pageResults) {
       const successCount = pageResult.tests.filter(t => t.status === 'success').length;
@@ -165,6 +236,17 @@ export class SessionManager {
       markdown += `### ${status} ${pageResult.pageName}\n`;
       markdown += `- **URL:** ${pageResult.url}\n`;
       markdown += `- **Tests:** ${pageResult.tests.length} (${successCount} passed, ${failCount} failed)\n`;
+      
+      // Show specific screenshot failures for this page
+      const screenshotTests = pageResult.tests.filter(t => t.testType.startsWith('screenshots-'));
+      if (screenshotTests.length > 0) {
+        const failedScreenshots = screenshotTests.filter(t => t.status === 'failed');
+        if (failedScreenshots.length > 0) {
+          const failedViewports = failedScreenshots.map(t => t.testType.replace('screenshots-', '')).join(', ');
+          markdown += `- **Screenshot Failures:** ${failedViewports}\n`;
+        }
+      }
+      
       markdown += `- **Details:** [${pageResult.pageName}-summary.md](${pageResult.pageName}/${pageResult.pageName}-summary.md)\n\n`;
     }
     

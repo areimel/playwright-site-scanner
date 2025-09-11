@@ -55,11 +55,11 @@ tests:
     name: "Screenshots"
     description: "Capture screenshots across different viewports"
     enabled: false
-    phase: 2
+    phase: 3
     scope: "page"
-    executionOrder: 4
+    executionOrder: 1
     dependencies: []
-    conflictsWith: ["accessibility"]
+    conflictsWith: []
     resourceIntensive: true
     outputType: "per-page"
 
@@ -81,11 +81,11 @@ tests:
     name: "Accessibility Scan"
     description: "Check for accessibility issues and WCAG compliance"
     enabled: false
-    phase: 2
+    phase: 4
     scope: "page"
-    executionOrder: 3
+    executionOrder: 1
     dependencies: []
-    conflictsWith: ["screenshots"]
+    conflictsWith: []
     resourceIntensive: true
     outputType: "per-page"
 
@@ -120,9 +120,9 @@ tests:
     name: "Site Summary"
     description: "Generate comprehensive site overview report"
     enabled: false
-    phase: 3
+    phase: 4
     scope: "session"
-    executionOrder: 1
+    executionOrder: 2
     dependencies: ["content-scraping"]
     conflictsWith: []
     resourceIntensive: false
@@ -188,13 +188,18 @@ execution:
       maxConcurrency: 3
       
     2:
-      name: "Unified Page Analysis"
-      description: "Content scraping, SEO, accessibility, and screenshot testing in single page sessions"
+      name: "Page Analysis"
+      description: "Content scraping and SEO analysis without viewport conflicts"
       maxConcurrency: 5
       
     3:
-      name: "Report Generation"
-      description: "Site summaries, aggregated reports, and final analysis"
+      name: "Screenshot Testing"
+      description: "Dedicated viewport screenshot capture across all devices"
+      maxConcurrency: 2
+      
+    4:
+      name: "Final Analysis & Reports"
+      description: "Accessibility testing, site summaries, and final report generation"
       maxConcurrency: 2
 
   crawling:

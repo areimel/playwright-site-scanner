@@ -206,15 +206,26 @@ export class TestOrchestrator {
       this.sessionProgressTracker.completePhase(2);
     }
     
-    // Execute Phase 3: Report Generation & Finalization
-    this.loadingScreen.updatePhase(3, 3, 'Report Generation');
-    this.loadingScreen.updateLoadingContext('reporting');
+    // Execute Phase 3: Dedicated Screenshot Testing
+    this.loadingScreen.updatePhase(3, 4, 'Screenshot Testing');
+    this.loadingScreen.updateLoadingContext('testing');
     if (this.sessionProgressTracker) {
       this.sessionProgressTracker.startPhase(3);
     }
     await this.testRunner.executePhase3(config, executionStrategy);
     if (this.sessionProgressTracker) {
       this.sessionProgressTracker.completePhase(3);
+    }
+    
+    // Execute Phase 4: Final Analysis & Report Generation
+    this.loadingScreen.updatePhase(4, 4, 'Final Analysis & Reports');
+    this.loadingScreen.updateLoadingContext('reporting');
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.startPhase(4);
+    }
+    await this.testRunner.executePhase4(config, executionStrategy);
+    if (this.sessionProgressTracker) {
+      this.sessionProgressTracker.completePhase(4);
     }
 
     // Stop loading screen

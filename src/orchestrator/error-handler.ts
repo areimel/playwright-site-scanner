@@ -40,6 +40,27 @@ export class ErrorHandler {
   }
 
   /**
+   * Enhanced screenshot error logging with viewport-specific diagnostics
+   */
+  logScreenshotError(viewportName: string, error: unknown, pageUrl?: string): void {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(chalk.red(`    ❌ Screenshot failed for ${viewportName} viewport: ${errorMessage}`));
+    
+    if (pageUrl) {
+      console.error(chalk.gray(`       URL: ${pageUrl}`));
+    }
+    
+    // Log specific error types
+    if (errorMessage.includes('timeout')) {
+      console.error(chalk.yellow(`       💡 Suggestion: Page may be slow to load or has infinite scroll content`));
+    } else if (errorMessage.includes('viewport')) {
+      console.error(chalk.yellow(`       💡 Suggestion: Viewport setting may have failed due to page constraints`));
+    } else if (errorMessage.includes('directory') || errorMessage.includes('ENOENT')) {
+      console.error(chalk.yellow(`       💡 Suggestion: File system race condition - will retry`));
+    }
+  }
+
+  /**
    * Logs error with chalk formatting using the same patterns as the original orchestrator
    * Matches the exact formatting from various catch blocks
    */
@@ -76,12 +97,6 @@ export class ErrorHandler {
     console.error(chalk.red(`    ❌ Page loading failed for ${url}: ${error}`));
   }
 
-  /**
-   * Logs screenshot-specific errors with viewport context
-   */
-  logScreenshotError(viewportName: string, error: unknown): void {
-    console.error(chalk.red(`      ❌ Screenshot ${viewportName} failed: ${error}`));
-  }
 
   /**
    * Logs page processing task errors with the exact format from the original orchestrator
@@ -171,6 +186,30 @@ export class ErrorHandler {
       startTime: new Date(),
       endTime: new Date(),
       error: error instanceof Error ? error.message : String(error)
+    };
+  }
+
+  /**
+   * Creates a viewport-specific failed test result with enhanced diagnostics
+   */
+  createFailedScreenshotTestResult(viewportName: string, error: unknown, pageUrl?: string): {
+    testType: string;
+    status: 'failed';
+    startTime: Date;
+    endTime: Date;
+    error: string;
+  } {
+    const baseError = error instanceof Error ? error.message : String(error);
+    const enhancedError = pageUrl 
+      ? `${viewportName} viewport failed on ${pageUrl}: ${baseError}`
+      : `${viewportName} viewport: ${baseError}`;
+
+    return {
+      testType: `screenshots-${viewportName}`,
+      status: 'failed' as const,
+      startTime: new Date(),
+      endTime: new Date(),
+      error: enhancedError
     };
   }
 

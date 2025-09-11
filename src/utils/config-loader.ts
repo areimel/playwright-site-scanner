@@ -116,8 +116,8 @@ export async function getPhaseDefinitions() {
       phase: phaseNum,
       name: config.name,
       description: config.description,
-      scope: phaseNum === 1 ? 'session' : phaseNum === 2 ? 'page' : 'session',
-      dependencies: phaseNum === 1 ? [] : phaseNum === 2 ? [1] : [1, 2],
+      scope: phaseNum === 1 ? 'session' : phaseNum === 4 ? 'session' : 'page', // Phase 1&4 are session, 2&3 are page
+      dependencies: phaseNum === 1 ? [] : phaseNum === 2 ? [1] : phaseNum === 3 ? [1, 2] : [1, 2, 3],
       parallelizable: true
     };
   }
