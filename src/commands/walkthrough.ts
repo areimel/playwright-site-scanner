@@ -60,6 +60,7 @@ export async function runWalkthrough(): Promise<void> {
         value: test.id,
         checked: false
       })),
+      loop: false,
       validate: (answer) => {
         if (answer.length === 0) {
           return 'Please select at least one test to run.';
