@@ -4,7 +4,7 @@ import { PlatformDetector } from './platform-detector.js';
 import { LoadingText, LoadingTextOptions } from './loading-text.js';
 import { LoadingInfo, LoadingInfoData } from './loading-info.js';
 import { LoadingProgressBar, ProgressData } from './loading-progress-bar.js';
-import { SessionProgressTracker } from '../session-progress-tracker.js';
+import { SessionProgressTracker } from '@utils/session-progress-tracker.js';
 
 export interface LoadingScreenOptions {
   enableVerboseMode?: boolean;

@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import { ProjectConfig } from '../types/config-types.js';
-import { TestType, ViewportConfig } from '../types/index.js';
+import { ProjectConfig } from '@shared/config-types.js';
+import { TestType, ViewportConfig } from '@shared/index.js';
 
 let cachedConfig: ProjectConfig | null = null;
 

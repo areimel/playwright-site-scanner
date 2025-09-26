@@ -1,4 +1,4 @@
-import { TestConfig } from '../types/index.js';
+import { TestConfig } from '@shared/index.js';
 
 export interface PhaseWeighting {
   discovery: number;    // Phase 1: Data Discovery & Collection  

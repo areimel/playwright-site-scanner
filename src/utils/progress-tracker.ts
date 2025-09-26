@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { ProgressState } from '../types/index.js';
+import { ProgressState } from '@shared/index.js';
 
 export interface PhaseProgress {
   currentPhase: number;

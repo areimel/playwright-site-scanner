@@ -1,10 +1,10 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '../types/index.js';
-import { validateUrl, resolveUrlByProbing } from '../utils/validation.js';
-import { TestOrchestrator } from '../orchestrator/test-orchestrator.js';
-import { ReporterManager } from '../utils/reporter-manager.js';
-import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig } from '../utils/config-loader.js';
+import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '@shared/index.js';
+import { validateUrl, resolveUrlByProbing } from '@utils/validation.js';
+import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
+import { ReporterManager } from '@utils/reporter-manager.js';
+import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig } from '@utils/config-loader.js';
 
 
 export async function runWalkthrough(): Promise<void> {

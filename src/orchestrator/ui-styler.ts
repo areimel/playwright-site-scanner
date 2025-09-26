@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import { TestResult, SessionSummary } from '../types/index.js';
-import { LoadingScreen } from '../utils/loading-screen/index.js';
+import { TestResult, SessionSummary } from '@shared/index.js';
+import { LoadingScreen } from '@utils/loading-screen/index.js';
 
 /**
  * UIStyler class provides consistent console formatting and UI display logic

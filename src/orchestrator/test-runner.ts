@@ -1,21 +1,21 @@
 import { Page } from 'playwright';
 import chalk from 'chalk';
-import { TestConfig, TestResult } from '../types/index.js';
-import { ExecutionStrategy, PhaseExecutionPlan } from '../types/test-phases.js';
-import { SessionDataManager } from '../utils/session-data-store.js';
-import { ParallelExecutor } from '../utils/parallel-executor.js';
-import { CrawleeSiteCrawler } from '../lib/crawlee-site-crawler.js';
-import { ScreenshotTester } from '../lib/screenshot-tester.js';
-import { SEOTester } from '../lib/seo-tester.js';
-import { AccessibilityTester } from '../lib/accessibility-tester.js';
-import { SitemapTester } from '../lib/sitemap-tester.js';
-import { ContentScraper } from '../lib/content-scraper.js';
-import { SiteSummaryTester } from '../lib/site-summary-tester.js';
-import { ApiKeyTester } from '../lib/api-key-tester.js';
+import { TestConfig, TestResult } from '@shared/index.js';
+import { ExecutionStrategy, PhaseExecutionPlan } from '@shared/test-phases.js';
+import { SessionDataManager } from '@utils/session-data-store.js';
+import { ParallelExecutor } from '@utils/parallel-executor.js';
+import { CrawleeSiteCrawler } from '@lib/crawlee-site-crawler.js';
+import { ScreenshotTester } from '@lib/screenshot-tester.js';
+import { SEOTester } from '@lib/seo-tester.js';
+import { AccessibilityTester } from '@lib/accessibility-tester.js';
+import { SitemapTester } from '@lib/sitemap-tester.js';
+import { ContentScraper } from '@lib/content-scraper.js';
+import { SiteSummaryTester } from '@lib/site-summary-tester.js';
+import { ApiKeyTester } from '@lib/api-key-tester.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
-import { getExecutionConfig } from '../utils/config-loader.js';
+import { getExecutionConfig } from '@utils/config-loader.js';
 
 /**
  * Core test execution engine that handles all three phases of test execution.

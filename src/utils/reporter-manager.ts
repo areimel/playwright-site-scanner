@@ -3,8 +3,8 @@ import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import chalk from 'chalk';
-import { ReporterConfig, SessionSummary, PageResult, TestResult } from '../types/index.js';
-import { HTMLReporter, HTMLReportData } from '../lib/html-reporter.js';
+import { ReporterConfig, SessionSummary, PageResult, TestResult } from '@shared/index.js';
+import { HTMLReporter, HTMLReportData } from '@lib/html-reporter.js';
 
 const execAsync = promisify(exec);
 

@@ -2,9 +2,9 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { TestResult } from '../types/index.js';
-import { SessionManager } from '../utils/session-manager.js';
-import { SessionDataManager } from '../utils/session-data-store.js';
+import { TestResult } from '@shared/index.js';
+import { SessionManager } from '@utils/session-manager.js';
+import { SessionDataManager } from '@utils/session-data-store.js';
 import { CrawleeSiteCrawler } from './crawlee-site-crawler.js';
 
 interface PageSummary {
