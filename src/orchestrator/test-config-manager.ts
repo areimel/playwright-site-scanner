@@ -1,6 +1,6 @@
-import { TestConfig, TestType } from '../types/index.js';
-import { TestPhaseManager, ExecutionStrategy } from '../types/test-phases.js';
-import { getTestClassifications, getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig } from '../utils/config-loader.js';
+import { TestConfig, TestType } from '@shared/index.js';
+import { TestPhaseManager, ExecutionStrategy } from '@shared/test-phases.js';
+import { getTestClassifications, getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig } from '@utils/config-loader.js';
 
 /**
  * TestConfigManager handles all test configuration processing and validation

@@ -5,6 +5,7 @@ export interface TestConfig {
   viewports: ViewportConfig[];
   reporter?: ReporterConfig;
   verboseMode?: boolean;
+  usedPlaylist?: string | null;
 }
 
 export interface TestType {
@@ -12,6 +13,13 @@ export interface TestType {
   name: string;
   description: string;
   enabled: boolean;
+}
+
+export interface PlaylistType {
+  id: string;
+  name: string;
+  description: string;
+  tests: string[];
 }
 
 export interface ViewportConfig {

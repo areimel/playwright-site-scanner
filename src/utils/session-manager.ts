@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { SessionSummary, PageResult, TestResult } from '../types/index.js';
+import { SessionSummary, PageResult, TestResult } from '@shared/index.js';
 import { sanitizePageName } from './validation.js';
 
 export class SessionManager {

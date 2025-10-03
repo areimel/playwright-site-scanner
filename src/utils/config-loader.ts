@@ -1,8 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import yaml from 'js-yaml';
-import { ProjectConfig } from '../types/config-types.js';
-import { TestType, ViewportConfig } from '../types/index.js';
+import { ProjectConfig } from '@shared/config-types.js';
+import { TestType, ViewportConfig, PlaylistType } from '@shared/index.js';
 
 let cachedConfig: ProjectConfig | null = null;
 
@@ -71,6 +71,11 @@ export async function getDefaultsConfig() {
   return config.defaults;
 }
 
+export async function getPlaylistsConfig() {
+  const config = await loadConfig();
+  return config.playlists;
+}
+
 export async function getAvailableTestsAsArray(): Promise<TestType[]> {
   const testsConfig = await getTestsConfig();
   return Object.values(testsConfig).map(test => ({
@@ -123,4 +128,30 @@ export async function getPhaseDefinitions() {
   }
   
   return phaseDefinitions;
+}
+
+export async function getAvailablePlaylistsAsArray(): Promise<PlaylistType[]> {
+  const playlistsConfig = await getPlaylistsConfig();
+  return Object.values(playlistsConfig).map(playlist => ({
+    id: playlist.id,
+    name: playlist.name,
+    description: playlist.description,
+    tests: playlist.tests
+  }));
+}
+
+export async function getPlaylistById(playlistId: string): Promise<PlaylistType | null> {
+  const playlistsConfig = await getPlaylistsConfig();
+  const playlist = playlistsConfig[playlistId];
+
+  if (!playlist) {
+    return null;
+  }
+
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    description: playlist.description,
+    tests: playlist.tests
+  };
 }

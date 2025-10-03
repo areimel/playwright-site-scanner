@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { SessionSummary } from '../types/index.js';
+import { SessionSummary } from '@shared/index.js';
 
 export interface CapturedError {
   error: unknown;

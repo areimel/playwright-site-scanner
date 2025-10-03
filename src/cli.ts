@@ -1,13 +1,24 @@
 #!/usr/bin/env node
 
+// Register tsconfig-paths for alias resolution at runtime
+import { register } from 'tsconfig-paths';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const tsConfig = JSON.parse(readFileSync(join(__dirname, '../tsconfig.json'), 'utf8'));
+register({
+  baseUrl: __dirname,
+  paths: tsConfig.compilerOptions.paths || {}
+});
+
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getWelcomeScreen, getBanner } from './utils/ascii-art.js';
-import { displayQrCode } from './utils/qr-code.js';
-import { runWalkthrough } from './commands/walkthrough.js';
-import { TestOrchestrator } from './orchestrator/test-orchestrator.js';
-import { TestConfig } from './types/index.js';
-import { getAppConfig, getQRConfig, getCLIConfig, getDefaultsConfig, getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig } from './utils/config-loader.js';
+import { getWelcomeScreen, getBanner } from '@utils/ascii-art.js';
+import { displayQrCode } from '@utils/qr-code.js';
+import { runWalkthrough } from '@commands/walkthrough.js';
+import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
+import { TestConfig } from '@shared/index.js';
+import { getAppConfig, getQRConfig, getCLIConfig, getDefaultsConfig, getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig } from '@utils/config-loader.js';
 
 const program = new Command();
 

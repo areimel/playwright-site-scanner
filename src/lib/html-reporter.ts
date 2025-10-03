@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { TestResult, PageResult, SessionSummary, ReporterConfig } from '../types/index.js';
+import { TestResult, PageResult, SessionSummary, ReporterConfig } from '@shared/index.js';
 
 export interface HTMLReportData {
   sessionSummary: SessionSummary;

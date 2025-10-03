@@ -1,6 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import chalk from 'chalk';
-import { getExecutionConfig } from '../utils/config-loader.js';
+import { getExecutionConfig } from '@utils/config-loader.js';
 
 /**
  * Manages browser lifecycle for the test orchestrator

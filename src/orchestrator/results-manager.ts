@@ -1,8 +1,8 @@
 import path from 'path';
-import { SessionSummary, PageResult, TestResult } from '../types/index.js';
-import { SessionManager } from '../utils/session-manager.js';
-import { SessionDataManager } from '../utils/session-data-store.js';
-import { ReporterManager } from '../utils/reporter-manager.js';
+import { SessionSummary, PageResult, TestResult } from '@shared/index.js';
+import { SessionManager } from '@utils/session-manager.js';
+import { SessionDataManager } from '@utils/session-data-store.js';
+import { ReporterManager } from '@utils/reporter-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
 

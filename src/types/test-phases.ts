@@ -1,5 +1,5 @@
 import { TestConfig } from './index.js';
-import { getTestClassifications, getPhaseDefinitions } from '../utils/config-loader.js';
+import { getTestClassifications, getPhaseDefinitions } from '@utils/config-loader.js';
 
 export type TestPhase = 1 | 2 | 3 | 4;
 
