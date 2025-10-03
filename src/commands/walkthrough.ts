@@ -4,15 +4,18 @@ import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '@shared/in
 import { validateUrl, resolveUrlByProbing } from '@utils/validation.js';
 import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
 import { ReporterManager } from '@utils/reporter-manager.js';
-import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig } from '@utils/config-loader.js';
+import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig, getAvailablePlaylistsAsArray, getPlaylistById } from '@utils/config-loader.js';
+import { PlaylistManager } from '@orchestrator/playlists.js';
 
 
 export async function runWalkthrough(): Promise<void> {
   // Load configuration
   const availableTests = await getAvailableTestsAsArray();
+  const availablePlaylists = await getAvailablePlaylistsAsArray();
   const viewports = await getViewportsAsArray();
   const reporterConfig = await getReporterConfig();
   const defaults = await getDefaultsConfig();
+  const playlistManager = new PlaylistManager();
   // Step 1: Get URL
   const { url } = await inquirer.prompt([
     {
@@ -42,37 +45,79 @@ export async function runWalkthrough(): Promise<void> {
     }
   ]);
 
-  const crawlMessage = crawlSite 
-    ? chalk.yellow('🕷️  Will crawl entire site') 
+  const crawlMessage = crawlSite
+    ? chalk.yellow('🕷️  Will crawl entire site')
     : chalk.yellow('📄 Will test single page only');
   console.log(`${crawlMessage}\n`);
 
-  // Step 3: Select tests
-  console.log(chalk.blue('🧪 Select which tests you\'d like to run:\n'));
-  
-  const { selectedTestIds } = await inquirer.prompt([
+  // Step 3: Select playlist or manual test selection
+  console.log(chalk.blue('🎵 Choose your testing approach:\n'));
+
+  const playlistChoices = [
     {
-      type: 'checkbox',
-      name: 'selectedTestIds',
-      message: 'Choose your tests:',
-      choices: availableTests.map(test => ({
-        name: `${test.name} - ${chalk.gray(test.description)}`,
-        value: test.id,
-        checked: false
-      })),
-      loop: false,
-      validate: (answer) => {
-        if (answer.length === 0) {
-          return 'Please select at least one test to run.';
-        }
-        return true;
-      }
+      name: '⚙️  Manually Select Tests - Choose specific tests individually',
+      value: 'manual',
+      short: 'Manual Selection'
+    },
+    ...availablePlaylists.map(playlist => ({
+      name: `${playlist.name} - ${chalk.gray(playlist.description)}`,
+      value: playlist.id,
+      short: playlist.name
+    }))
+  ];
+
+  const { selectionMode } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'selectionMode',
+      message: 'How would you like to select your tests?',
+      choices: playlistChoices,
+      loop: false
     }
   ]);
 
-  const selectedTests = availableTests.filter(test => 
-    selectedTestIds.includes(test.id)
-  ).map(test => ({ ...test, enabled: true }));
+  let selectedTests: TestType[];
+  let usedPlaylist: string | null = null;
+
+  if (selectionMode === 'manual') {
+    console.log(chalk.green('✅ Manual test selection chosen\n'));
+
+    // Step 4: Manual test selection (existing logic)
+    console.log(chalk.blue('🧪 Select which tests you\'d like to run:\n'));
+
+    const { selectedTestIds } = await inquirer.prompt([
+      {
+        type: 'checkbox',
+        name: 'selectedTestIds',
+        message: 'Choose your tests:',
+        choices: availableTests.map(test => ({
+          name: `${test.name} - ${chalk.gray(test.description)}`,
+          value: test.id,
+          checked: false
+        })),
+        loop: false,
+        validate: (answer) => {
+          if (answer.length === 0) {
+            return 'Please select at least one test to run.';
+          }
+          return true;
+        }
+      }
+    ]);
+
+    selectedTests = availableTests.filter(test =>
+      selectedTestIds.includes(test.id)
+    ).map(test => ({ ...test, enabled: true }));
+  } else {
+    // Playlist selection
+    usedPlaylist = selectionMode;
+    selectedTests = await playlistManager.getPlaylistTests(selectionMode);
+    const playlist = await getPlaylistById(selectionMode);
+
+    console.log(chalk.green(`✅ ${playlist?.name} playlist selected`));
+    console.log(chalk.gray(`   ${playlist?.description}`));
+    console.log(chalk.cyan(`   Tests: ${selectedTests.map(t => t.name).join(', ')}\n`));
+  }
 
   console.log(chalk.green(`✅ Selected ${selectedTests.length} test(s)\n`));
 
@@ -88,7 +133,8 @@ export async function runWalkthrough(): Promise<void> {
     selectedTests,
     viewports,
     reporter: reporterConfig,
-    verboseMode
+    verboseMode,
+    usedPlaylist
   });
 }
 
@@ -98,7 +144,15 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   console.log(chalk.cyan('═'.repeat(50)));
   console.log(chalk.white(`🌐 URL: ${config.url}`));
   console.log(chalk.white(`🕷️  Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
-  console.log(chalk.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
+
+  if (config.usedPlaylist) {
+    const playlist = await getPlaylistById(config.usedPlaylist);
+    console.log(chalk.white(`🎵 Playlist: ${playlist?.name} (${config.selectedTests.length} tests)`));
+    console.log(chalk.white(`🧪 Tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
+  } else {
+    console.log(chalk.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
+  }
+
   console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
   console.log(chalk.white(`🔧 Output mode: ${config.verboseMode ? 'Verbose logging' : 'Clean loading screen'}`));
   

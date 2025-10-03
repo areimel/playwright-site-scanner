@@ -223,6 +223,26 @@ cli:
           description: "Test single page only (default: crawl entire site)"
           default: true
 
+# Test Playlists Configuration
+playlists:
+  seo:
+    id: "seo"
+    name: "SEO Optimization"
+    description: "Complete SEO analysis including scans, accessibility, and sitemap generation"
+    tests: ["site-crawling", "seo", "accessibility", "sitemap"]
+
+  security:
+    id: "security"
+    name: "Security Audit"
+    description: "Security-focused testing including API key scanning and accessibility compliance"
+    tests: ["site-crawling", "api-key-scan", "accessibility"]
+
+  content-scrape:
+    id: "content-scrape"
+    name: "Content Analysis"
+    description: "Comprehensive content extraction and site summary generation"
+    tests: ["site-crawling", "content-scraping", "site-summary"]
+
 # Default Values
 defaults:
   url: "https://example.com"

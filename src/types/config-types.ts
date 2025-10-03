@@ -7,6 +7,7 @@ export interface ProjectConfig {
   reporter: ReporterConfig;
   execution: ExecutionConfig;
   cli: CLIConfig;
+  playlists: PlaylistsConfig;
   defaults: DefaultsConfig;
 }
 
@@ -57,6 +58,17 @@ export interface TestDefinition {
 
 export interface TestsConfig {
   [testId: string]: TestDefinition;
+}
+
+export interface PlaylistDefinition {
+  id: string;
+  name: string;
+  description: string;
+  tests: string[];
+}
+
+export interface PlaylistsConfig {
+  [playlistId: string]: PlaylistDefinition;
 }
 
 export interface ViewportDefinition {
