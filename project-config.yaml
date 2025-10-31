@@ -50,14 +50,27 @@ branding:
 
 # Available Tests Configuration
 tests:
-  screenshots:
-    id: "screenshots"
-    name: "Screenshots"
-    description: "Capture screenshots across different viewports"
+  screenshots-full-page:
+    id: "screenshots-full-page"
+    name: "Full-Page Screenshots"
+    description: "Capture full-length screenshots across different viewports"
     enabled: false
     phase: 3
     scope: "page"
     executionOrder: 1
+    dependencies: []
+    conflictsWith: []
+    resourceIntensive: true
+    outputType: "per-page"
+
+  screenshots-above-fold:
+    id: "screenshots-above-fold"
+    name: "Above-The-Fold Screenshots"
+    description: "Capture viewport-only screenshots showing initial page view without scrolling"
+    enabled: false
+    phase: 3
+    scope: "page"
+    executionOrder: 2
     dependencies: []
     conflictsWith: []
     resourceIntensive: true

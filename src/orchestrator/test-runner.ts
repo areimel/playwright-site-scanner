@@ -241,7 +241,7 @@ export class TestRunner {
   }
 
   /**
-   * Phase 3: Dedicated Screenshot Testing  
+   * Phase 3: Dedicated Screenshot Testing
    * - Screenshots isolated from other tests to prevent conflicts
    */
   async executePhase3(config: TestConfig, strategy: ExecutionStrategy): Promise<void> {
@@ -249,24 +249,31 @@ export class TestRunner {
     if (!phase3Plan || (phase3Plan.pageTests.length === 0 && phase3Plan.sessionTests.length === 0)) return;
 
     this.uiStyler.displayPhaseStart(3, 'Dedicated Screenshot Testing');
-    
+
     const urls = this.dataManager.getUrls();
     const pageTests = phase3Plan.pageTests;
-    
+
     this.uiStyler.displayProgress(`📸 Processing ${urls.length} pages for screenshot testing...`);
 
     // Create dedicated screenshot tasks - isolated from other tests
-    if (pageTests.includes('screenshots')) {
-      const screenshotTasks = urls.map(url => ({
-        id: `screenshots-${url}`,
-        name: `Screenshots for ${new URL(url).pathname}`,
-        execute: async () => {
-          return await this.processPageScreenshots(url, config);
-        }
-      }));
+    // Handle both full-page and above-the-fold screenshots
+    const screenshotTestTypes = pageTests.filter(test =>
+      test === 'screenshots-full-page' || test === 'screenshots-above-fold'
+    );
+
+    if (screenshotTestTypes.length > 0) {
+      const screenshotTasks = urls.flatMap(url =>
+        screenshotTestTypes.map(testType => ({
+          id: `${testType}-${url}`,
+          name: `${testType === 'screenshots-full-page' ? 'Full-Page' : 'Above-Fold'} Screenshots for ${new URL(url).pathname}`,
+          execute: async () => {
+            return await this.processPageScreenshots(url, config, testType);
+          }
+        }))
+      );
 
       this.uiStyler.displayTaskExecution('dedicated screenshot sessions', screenshotTasks.length);
-      
+
       const executionConfig = await getExecutionConfig();
       const screenshotResults = await this.parallelExecutor.executeTasks(screenshotTasks, {
         description: 'screenshot testing',
@@ -275,7 +282,7 @@ export class TestRunner {
           this.uiStyler.displayTaskProgress(completed, total);
         }
       });
-      
+
       // Collect all screenshot results
       screenshotResults.successful.forEach(taskResult => {
         const pageResults = taskResult.result as TestResult[];
@@ -462,35 +469,51 @@ export class TestRunner {
    * Process a single page for dedicated screenshot testing only
    * Used in Phase 3 to isolate screenshot tests from other tests
    */
-  async processPageScreenshots(url: string, config: TestConfig): Promise<TestResult[]> {
+  async processPageScreenshots(url: string, config: TestConfig, testType: string): Promise<TestResult[]> {
     const results: TestResult[] = [];
     let page: Page | null = null;
 
     try {
-      this.uiStyler.displayProgress(`📸 Loading page for screenshots: ${new URL(url).pathname}`);
+      const isFullPage = testType === 'screenshots-full-page';
+      const screenshotTypeLabel = isFullPage ? 'full-page screenshots' : 'above-the-fold screenshots';
+
+      this.uiStyler.displayProgress(`📸 Loading page for ${screenshotTypeLabel}: ${new URL(url).pathname}`);
       page = await this.browserManager.createPage();
-      
+
       await page.goto(url, { waitUntil: 'networkidle' });
 
       // Run ONLY screenshot tests - no other conflicting tests
-      this.uiStyler.displayTestProgress(`📸 Screenshots across ${config.viewports.length} viewports in isolation`);
-      
+      this.uiStyler.displayTestProgress(`📸 ${isFullPage ? 'Full-Page' : 'Above-Fold'} screenshots across ${config.viewports.length} viewports in isolation`);
+
       try {
-        // Use ParallelExecutor's executeScreenshotTests for dedicated viewport processing
-        const screenshotResults = await this.parallelExecutor.executeScreenshotTests(
-          page!, 
-          url, 
-          config.viewports, 
-          this.dataManager.sessionId, 
-          this.screenshotTester
-        );
-        results.push(...screenshotResults);
+        // Capture screenshots based on test type
+        for (const viewport of config.viewports) {
+          let screenshotResult: TestResult;
+
+          if (isFullPage) {
+            screenshotResult = await this.screenshotTester.captureScreenshot(
+              page!,
+              url,
+              viewport,
+              this.dataManager.sessionId
+            );
+          } else {
+            screenshotResult = await this.screenshotTester.captureAboveTheFoldScreenshot(
+              page!,
+              url,
+              viewport,
+              this.dataManager.sessionId
+            );
+          }
+
+          results.push(screenshotResult);
+        }
       } catch (error) {
         this.errorHandler.captureError(error, 'screenshot tests');
         this.errorHandler.logScreenshotError('all viewports', error);
         // Create failed results for all viewports
-        const failedResults = config.viewports.map(viewport => 
-          this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
+        const failedResults = config.viewports.map(viewport =>
+          this.errorHandler.createFailedTestResult(`${testType}-${viewport.name}`, error)
         );
         results.push(...failedResults);
       }
@@ -504,8 +527,8 @@ export class TestRunner {
       this.errorHandler.captureError(error, `Screenshot page load for ${url}`);
       this.errorHandler.logPageLoadError(url, error);
       // Return failed results for all viewports
-      return config.viewports.map(viewport => 
-        this.errorHandler.createFailedTestResult(`screenshots-${viewport.name}`, error)
+      return config.viewports.map(viewport =>
+        this.errorHandler.createFailedTestResult(`${testType}-${viewport.name}`, error)
       );
 
     } finally {
@@ -596,13 +619,14 @@ export class TestRunner {
       'site-crawling': 'Site Crawling',
       'sitemap': 'Sitemap Generation',
       'content-scraping': 'Content Scraping',
-      'screenshots': 'Screenshots',
+      'screenshots-full-page': 'Full-Page Screenshots',
+      'screenshots-above-fold': 'Above-The-Fold Screenshots',
       'seo': 'SEO Scan',
       'accessibility': 'Accessibility Scan',
       'site-summary': 'Site Summary',
       'api-key-scan': 'API Key Security Scan'
     };
-    
+
     return testNames[testId] || testId;
   }
 }
