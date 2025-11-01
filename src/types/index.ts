@@ -83,14 +83,22 @@ export interface SitemapEntry {
   priority: number;
 }
 
+export interface ContentElement {
+  type: 'heading' | 'paragraph' | 'list' | 'image' | 'blockquote' | 'code';
+  data: HeadingData | ParagraphData | ListData | ImageData | BlockquoteData | CodeData;
+  indentLevel: number; // For preserving hierarchy
+}
+
 export interface ScrapedContent {
   title: string;
+  content: ContentElement[]; // Sequential content in DOM order
+  metadata: PageMetadata;
+  // Keep these for backward compatibility with existing code
   headings: HeadingData[];
   paragraphs: string[];
   lists: ListData[];
   images: ImageData[];
   links: LinkData[];
-  metadata: PageMetadata;
 }
 
 export interface HeadingData {
@@ -99,9 +107,24 @@ export interface HeadingData {
   id?: string;
 }
 
+export interface ParagraphData {
+  text: string;
+  links?: LinkData[]; // Inline links within the paragraph
+}
+
 export interface ListData {
   type: 'ordered' | 'unordered';
   items: string[];
+  nestedLevel?: number; // For preserving nested list hierarchy
+}
+
+export interface BlockquoteData {
+  text: string;
+}
+
+export interface CodeData {
+  language?: string;
+  code: string;
 }
 
 export interface ImageData {

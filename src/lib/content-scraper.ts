@@ -2,7 +2,7 @@ import { Page } from 'playwright';
 import chalk from 'chalk';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { ScrapedContent, TestResult, HeadingData, ListData, ImageData, LinkData, PageMetadata } from '@shared/index.js';
+import { ScrapedContent, TestResult, HeadingData, ParagraphData, ListData, ImageData, LinkData, PageMetadata, BlockquoteData, CodeData } from '@shared/index.js';
 import { SessionManager } from '@utils/session-manager.js';
 import { SessionDataManager } from '@utils/session-data-store.js';
 
@@ -130,20 +130,40 @@ export class ContentScraper {
 
   private async extractPageContent(page: Page, pageUrl: string): Promise<ScrapedContent> {
     return await page.evaluate((url) => {
+      // Helper interfaces for browser context
+      interface ContentElement {
+        type: 'heading' | 'paragraph' | 'list' | 'image' | 'blockquote' | 'code';
+        data: any;
+        indentLevel: number;
+      }
+
+      interface ScrapedContent {
+        title: string;
+        content: ContentElement[];
+        metadata: any;
+        headings: any[];
+        paragraphs: string[];
+        lists: any[];
+        images: any[];
+        links: any[];
+      }
+
       const content: ScrapedContent = {
         title: document.title || '',
-        headings: [],
-        paragraphs: [],
-        lists: [],
-        images: [],
-        links: [],
+        content: [], // Sequential content in DOM order
         metadata: {
           description: '',
           author: '',
           publishDate: '',
           modifiedDate: '',
           keywords: []
-        }
+        },
+        // Backward compatibility arrays
+        headings: [],
+        paragraphs: [],
+        lists: [],
+        images: [],
+        links: []
       };
 
       // Extract metadata
@@ -160,84 +180,217 @@ export class ContentScraper {
         if (property === 'article:modified_time') content.metadata.modifiedDate = content_attr;
       });
 
-      // Extract headings (H1-H6)
-      const headingElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      headingElements.forEach((heading: Element) => {
-        const level = parseInt(heading.tagName.charAt(1));
-        const text = heading.textContent?.trim() || '';
-        const id = heading.getAttribute('id') || undefined;
-        
-        if (text) {
-          content.headings.push({ level, text, id });
-        }
-      });
+      // Helper function to extract inline links from an element
+      const extractInlineLinks = (element: Element): any[] => {
+        const links: any[] = [];
+        const anchorElements = element.querySelectorAll('a[href]');
+        anchorElements.forEach((link: Element) => {
+          const anchorLink = link as HTMLAnchorElement;
+          const href = anchorLink.href;
+          const text = anchorLink.textContent?.trim() || '';
 
-      // Extract paragraphs
-      const paragraphElements = document.querySelectorAll('p');
-      paragraphElements.forEach((p: HTMLParagraphElement) => {
-        const text = p.textContent?.trim() || '';
-        if (text && text.length > 10) { // Filter out very short paragraphs
-          content.paragraphs.push(text);
-        }
-      });
-
-      // Extract lists
-      const listElements = document.querySelectorAll('ul, ol');
-      listElements.forEach((list: Element) => {
-        const type = list.tagName.toLowerCase() === 'ul' ? 'unordered' : 'ordered';
-        const items: string[] = [];
-        
-        const listItems = list.querySelectorAll('li');
-        listItems.forEach((li: HTMLLIElement) => {
-          const text = li.textContent?.trim() || '';
-          if (text) {
-            items.push(text);
+          if (text && href) {
+            const isExternal = !href.startsWith(window.location.origin) &&
+                             (href.startsWith('http') || href.startsWith('//'));
+            links.push({ href, text, isExternal });
           }
         });
+        return links;
+      };
 
-        if (items.length > 0) {
-          content.lists.push({ type, items });
+      // Helper function to convert element text with inline links to markdown
+      const getTextWithInlineLinks = (element: Element): string => {
+        let text = '';
+        const walker = document.createTreeWalker(
+          element,
+          NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+          {
+            acceptNode: (node) => {
+              if (node.nodeType === Node.TEXT_NODE) {
+                return NodeFilter.FILTER_ACCEPT;
+              }
+              if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName === 'A') {
+                return NodeFilter.FILTER_ACCEPT;
+              }
+              return NodeFilter.FILTER_SKIP;
+            }
+          }
+        );
+
+        let currentNode: Node | null;
+        while (currentNode = walker.nextNode()) {
+          if (currentNode.nodeType === Node.TEXT_NODE) {
+            text += currentNode.textContent || '';
+          } else if (currentNode.nodeType === Node.ELEMENT_NODE) {
+            const linkElement = currentNode as HTMLAnchorElement;
+            const linkText = linkElement.textContent?.trim() || '';
+            const href = linkElement.href;
+            if (linkText && href) {
+              text += `[${linkText}](${href})`;
+            }
+          }
         }
-      });
+        return text.trim();
+      };
 
-      // Extract images
-      const imageElements = document.querySelectorAll('img');
-      imageElements.forEach((img: HTMLImageElement) => {
-        // Convert relative URLs to absolute
-        let src = img.src;
+      // Helper function to convert relative URLs to absolute
+      const makeAbsoluteUrl = (src: string): string => {
         if (src.startsWith('/')) {
           const baseUrl = new URL(url);
-          src = baseUrl.origin + src;
+          return baseUrl.origin + src;
         } else if (src.startsWith('./') || !src.startsWith('http')) {
           try {
-            src = new URL(src, url).href;
+            return new URL(src, url).href;
           } catch (e) {
-            // Skip malformed URLs
-            return;
+            return src; // Return original if conversion fails
           }
         }
+        return src;
+      };
 
-        content.images.push({
-          src: src,
-          alt: img.alt || '',
-          title: img.title || undefined
-        });
-      });
+      // Recursive function to walk DOM and extract content in order
+      const processedElements = new Set<Element>(); // Track processed elements to avoid duplicates
 
-      // Extract links
-      const linkElements = document.querySelectorAll('a[href]');
-      linkElements.forEach((link: Element) => {
-        const anchorLink = link as HTMLAnchorElement;
-        let href = anchorLink.href;
-        const text = anchorLink.textContent?.trim() || '';
-        
-        if (text && href) {
-          const isExternal = !href.startsWith(window.location.origin) && 
-                           (href.startsWith('http') || href.startsWith('//'));
-          
-          content.links.push({ href, text, isExternal });
+      const walkDOM = (node: Element, indentLevel: number = 0) => {
+        // Skip if already processed (prevents duplicate nested lists)
+        if (processedElements.has(node)) {
+          return;
         }
-      });
+
+        const tagName = node.tagName;
+
+        // Process headings
+        if (/^H[1-6]$/.test(tagName)) {
+          processedElements.add(node);
+          const level = parseInt(tagName.charAt(1));
+          const text = getTextWithInlineLinks(node);
+          const id = node.getAttribute('id') || undefined;
+
+          if (text) {
+            const headingData = { level, text, id };
+            content.content.push({
+              type: 'heading',
+              data: headingData,
+              indentLevel
+            });
+            // Backward compatibility
+            content.headings.push(headingData);
+          }
+          return; // Don't process children of headings
+        }
+
+        // Process paragraphs
+        if (tagName === 'P') {
+          processedElements.add(node);
+          const text = getTextWithInlineLinks(node);
+          const links = extractInlineLinks(node);
+
+          if (text && text.length > 10) {
+            const paragraphData = { text, links: links.length > 0 ? links : undefined };
+            content.content.push({
+              type: 'paragraph',
+              data: paragraphData,
+              indentLevel
+            });
+            // Backward compatibility
+            content.paragraphs.push(text);
+            content.links.push(...links);
+          }
+          return; // Don't process children of paragraphs
+        }
+
+        // Process lists (UL/OL)
+        if (tagName === 'UL' || tagName === 'OL') {
+          processedElements.add(node);
+          const type = tagName === 'UL' ? 'unordered' : 'ordered';
+          const items: string[] = [];
+
+          // Only get direct children LI elements
+          const directListItems = Array.from(node.children).filter(child => child.tagName === 'LI');
+          directListItems.forEach((li: Element) => {
+            const text = getTextWithInlineLinks(li);
+            if (text) {
+              items.push(text);
+            }
+            // Extract links from list items
+            const links = extractInlineLinks(li);
+            content.links.push(...links);
+          });
+
+          if (items.length > 0) {
+            const listData = { type, items, nestedLevel: indentLevel };
+            content.content.push({
+              type: 'list',
+              data: listData,
+              indentLevel
+            });
+            // Backward compatibility
+            content.lists.push({ type, items });
+          }
+          return; // Don't process children of lists
+        }
+
+        // Process images
+        if (tagName === 'IMG') {
+          processedElements.add(node);
+          const img = node as HTMLImageElement;
+          const src = makeAbsoluteUrl(img.src);
+          const alt = img.alt || '';
+          const title = img.title || undefined;
+
+          const imageData = { src, alt, title };
+          content.content.push({
+            type: 'image',
+            data: imageData,
+            indentLevel
+          });
+          // Backward compatibility
+          content.images.push(imageData);
+          return;
+        }
+
+        // Process blockquotes
+        if (tagName === 'BLOCKQUOTE') {
+          processedElements.add(node);
+          const text = getTextWithInlineLinks(node);
+          const links = extractInlineLinks(node);
+
+          if (text) {
+            content.content.push({
+              type: 'blockquote',
+              data: { text },
+              indentLevel
+            });
+            content.links.push(...links);
+          }
+          return; // Don't process children of blockquotes
+        }
+
+        // Process code blocks
+        if (tagName === 'PRE') {
+          processedElements.add(node);
+          const codeElement = node.querySelector('code');
+          const code = codeElement ? codeElement.textContent || '' : node.textContent || '';
+          const language = codeElement?.className.match(/language-(\w+)/)?.[1];
+
+          if (code.trim()) {
+            content.content.push({
+              type: 'code',
+              data: { code: code.trim(), language },
+              indentLevel
+            });
+          }
+          return; // Don't process children of code blocks
+        }
+
+        // Recursively process children
+        for (const child of Array.from(node.children)) {
+          walkDOM(child, indentLevel);
+        }
+      };
+
+      // Start walking from body
+      walkDOM(document.body, 0);
 
       return content;
     }, pageUrl);
@@ -298,7 +451,7 @@ export class ContentScraper {
 
   private generateMarkdown(content: ScrapedContent, pageUrl: string): string {
     let markdown = `# ${content.title}\n\n`;
-    
+
     // Add metadata
     markdown += `**URL:** ${pageUrl}\n`;
     markdown += `**Scraped:** ${new Date().toISOString()}\n\n`;
@@ -317,87 +470,80 @@ export class ContentScraper {
 
     markdown += `---\n\n`;
 
-    // Add headings and structure content
-    let currentSection = '';
-    
-    for (const heading of content.headings) {
-      const headingMarkdown = '#'.repeat(heading.level) + ' ' + heading.text + '\n\n';
-      markdown += headingMarkdown;
-      currentSection = heading.text;
-    }
+    // Render content in sequential DOM order
+    for (const element of content.content) {
+      const indent = '  '.repeat(element.indentLevel); // 2 spaces per indent level
 
-    // Add paragraphs
-    if (content.paragraphs.length > 0) {
-      markdown += `## Content\n\n`;
-      for (const paragraph of content.paragraphs) {
-        markdown += `${paragraph}\n\n`;
-      }
-    }
+      switch (element.type) {
+        case 'heading': {
+          const data = element.data as HeadingData;
+          const headingMarkdown = '#'.repeat(data.level) + ' ' + data.text + '\n\n';
+          markdown += headingMarkdown;
+          break;
+        }
 
-    // Add lists
-    if (content.lists.length > 0) {
-      markdown += `## Lists\n\n`;
-      for (let i = 0; i < content.lists.length; i++) {
-        const list = content.lists[i];
-        markdown += `### List ${i + 1}\n\n`;
-        
-        for (let j = 0; j < list.items.length; j++) {
-          const item = list.items[j];
-          if (list.type === 'ordered') {
-            markdown += `${j + 1}. ${item}\n`;
+        case 'paragraph': {
+          const data = element.data as ParagraphData;
+          markdown += `${indent}${data.text}\n\n`;
+          break;
+        }
+
+        case 'list': {
+          const data = element.data as ListData;
+          for (let i = 0; i < data.items.length; i++) {
+            const item = data.items[i];
+            if (data.type === 'ordered') {
+              markdown += `${indent}${i + 1}. ${item}\n`;
+            } else {
+              markdown += `${indent}- ${item}\n`;
+            }
+          }
+          markdown += '\n';
+          break;
+        }
+
+        case 'image': {
+          const data = element.data as ImageData;
+          const altText = data.alt || 'Image';
+
+          if (data.filename) {
+            // Use local image reference
+            markdown += `${indent}![${altText}](../images/${data.filename})`;
+            if (data.title) {
+              markdown += ` "${data.title}"`;
+            }
+            markdown += '\n\n';
           } else {
-            markdown += `- ${item}\n`;
+            // Use original URL if local download failed
+            markdown += `${indent}![${altText}](${data.src})`;
+            if (data.title) {
+              markdown += ` "${data.title}"`;
+            }
+            markdown += '\n\n';
           }
+          break;
         }
-        markdown += '\n';
-      }
-    }
 
-    // Add images
-    if (content.images.length > 0) {
-      markdown += `## Images\n\n`;
-      for (let i = 0; i < content.images.length; i++) {
-        const image = content.images[i];
-        const altText = image.alt || `Image ${i + 1}`;
-        
-        if (image.filename) {
-          // Use local image reference
-          markdown += `![${altText}](../images/${image.filename})\n\n`;
-          if (image.title) {
-            markdown += `*${image.title}*\n\n`;
+        case 'blockquote': {
+          const data = element.data as BlockquoteData;
+          const lines = data.text.split('\n');
+          for (const line of lines) {
+            markdown += `${indent}> ${line}\n`;
           }
-        } else {
-          // Use original URL if local download failed
-          markdown += `![${altText}](${image.src})\n\n`;
-          if (image.title) {
-            markdown += `*${image.title}*\n\n`;
-          }
-          markdown += `*Note: Image could not be downloaded locally*\n\n`;
+          markdown += '\n';
+          break;
         }
-      }
-    }
 
-    // Add links
-    if (content.links.length > 0) {
-      markdown += `## Links\n\n`;
-      
-      const internalLinks = content.links.filter(link => !link.isExternal);
-      const externalLinks = content.links.filter(link => link.isExternal);
-      
-      if (internalLinks.length > 0) {
-        markdown += `### Internal Links\n\n`;
-        for (const link of internalLinks) {
-          markdown += `- [${link.text}](${link.href})\n`;
+        case 'code': {
+          const data = element.data as CodeData;
+          markdown += `${indent}\`\`\`${data.language || ''}\n`;
+          const codeLines = data.code.split('\n');
+          for (const line of codeLines) {
+            markdown += `${indent}${line}\n`;
+          }
+          markdown += `${indent}\`\`\`\n\n`;
+          break;
         }
-        markdown += '\n';
-      }
-      
-      if (externalLinks.length > 0) {
-        markdown += `### External Links\n\n`;
-        for (const link of externalLinks) {
-          markdown += `- [${link.text}](${link.href})\n`;
-        }
-        markdown += '\n';
       }
     }
 
