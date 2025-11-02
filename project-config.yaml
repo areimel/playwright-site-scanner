@@ -141,6 +141,19 @@ tests:
     resourceIntensive: false
     outputType: "site-wide"
 
+  llms-txt:
+    id: "llms-txt"
+    name: "LLMs.txt Generator"
+    description: "Generate LLM-friendly llms.txt file with deduplicated, organized content"
+    enabled: false
+    phase: 4
+    scope: "session"
+    executionOrder: 3
+    dependencies: ["content-scraping", "sitemap"]
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "site-wide"
+
   api-key-scan:
     id: "api-key-scan"
     name: "API Key Security Scan"

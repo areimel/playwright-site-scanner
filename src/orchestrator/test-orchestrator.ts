@@ -14,6 +14,7 @@ import { SitemapTester } from '@lib/sitemap-tester.js';
 import { ContentScraper } from '@lib/content-scraper.js';
 import { SiteSummaryTester } from '@lib/site-summary-tester.js';
 import { ApiKeyTester } from '@lib/api-key-tester.js';
+import { LlmsTxtGenerator } from '@lib/llms-txt-generator.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -160,6 +161,7 @@ export class TestOrchestrator {
       new ContentScraper(),
       new SiteSummaryTester(),
       new ApiKeyTester(),
+      new LlmsTxtGenerator(),
       this.errorHandler,
       this.uiStyler
     );

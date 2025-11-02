@@ -12,6 +12,7 @@ import { SitemapTester } from '@lib/sitemap-tester.js';
 import { ContentScraper } from '@lib/content-scraper.js';
 import { SiteSummaryTester } from '@lib/site-summary-tester.js';
 import { ApiKeyTester } from '@lib/api-key-tester.js';
+import { LlmsTxtGenerator } from '@lib/llms-txt-generator.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -34,6 +35,7 @@ export class TestRunner {
   private contentScraper: ContentScraper;
   private siteSummaryTester: SiteSummaryTester;
   private apiKeyTester: ApiKeyTester;
+  private llmsTxtGenerator: LlmsTxtGenerator;
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
 
@@ -52,6 +54,7 @@ export class TestRunner {
     contentScraper: ContentScraper,
     siteSummaryTester: SiteSummaryTester,
     apiKeyTester: ApiKeyTester,
+    llmsTxtGenerator: LlmsTxtGenerator,
     errorHandler: ErrorHandler,
     uiStyler: UIStyler
   ) {
@@ -66,6 +69,7 @@ export class TestRunner {
     this.contentScraper = contentScraper;
     this.siteSummaryTester = siteSummaryTester;
     this.apiKeyTester = apiKeyTester;
+    this.llmsTxtGenerator = llmsTxtGenerator;
     this.errorHandler = errorHandler;
     this.uiStyler = uiStyler;
   }
@@ -365,6 +369,8 @@ export class TestRunner {
           switch (testId) {
             case 'site-summary':
               return await this.siteSummaryTester.generateSiteSummaryFromStore(this.dataManager);
+            case 'llms-txt':
+              return await this.llmsTxtGenerator.generateLlmsTxt(this.dataManager);
             default:
               throw new Error(`Unknown report test: ${testId}`);
           }
@@ -624,7 +630,8 @@ export class TestRunner {
       'seo': 'SEO Scan',
       'accessibility': 'Accessibility Scan',
       'site-summary': 'Site Summary',
-      'api-key-scan': 'API Key Security Scan'
+      'api-key-scan': 'API Key Security Scan',
+      'llms-txt': 'LLMs.txt Generator'
     };
 
     return testNames[testId] || testId;
