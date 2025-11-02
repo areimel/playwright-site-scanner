@@ -28,7 +28,7 @@ export async function runWalkthrough(): Promise<void> {
   ]);
 
   const resolvedUrl = await resolveUrlByProbing(url);
-  console.log(chalk.green(`✅ URL set to: ${url}`));
+  console.log(chalk.green(`URL set to: ${url}`));
   if (resolvedUrl !== url) {
     console.log(chalk.yellow(`🔎 Resolved to: ${resolvedUrl}\n`));
   } else {
@@ -51,11 +51,11 @@ export async function runWalkthrough(): Promise<void> {
   console.log(`${crawlMessage}\n`);
 
   // Step 3: Select playlist or manual test selection
-  console.log(chalk.blue('🎵 Choose your testing approach:\n'));
+  console.log(chalk.blue('Choose your testing approach:\n'));
 
   const playlistChoices = [
     {
-      name: '⚙️  Manually Select Tests - Choose specific tests individually',
+      name: 'Manually Select Tests - Choose specific tests individually',
       value: 'manual',
       short: 'Manual Selection'
     },
@@ -117,7 +117,7 @@ export async function runWalkthrough(): Promise<void> {
     selectedTests = await playlistManager.getPlaylistTests(selectionMode);
     const playlist = await getPlaylistById(selectionMode);
 
-    console.log(chalk.green(`✅ ${playlist?.name} playlist selected`));
+    console.log(chalk.green(`✅ ${playlist?.name} testing playlist selected`));
     console.log(chalk.gray(`   ${playlist?.description}`));
     console.log(chalk.cyan(`   Tests: ${selectedTests.map(t => t.name).join(', ')}\n`));
   }
@@ -143,17 +143,17 @@ export async function runWalkthrough(): Promise<void> {
 
 
 async function showConfirmation(config: TestConfig): Promise<void> {
-  console.log(chalk.blue('📋 Test Configuration Summary:'));
+  console.log(chalk.blue('Test Configuration Summary:'));
   console.log(chalk.cyan('═'.repeat(50)));
-  console.log(chalk.white(`🌐 URL: ${config.url}`));
-  console.log(chalk.white(`🕷️  Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
+  console.log(chalk.white(`URL: ${config.url}`));
+  console.log(chalk.white(`Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
 
   if (config.usedPlaylist) {
     const playlist = await getPlaylistById(config.usedPlaylist);
-    console.log(chalk.white(`🎵 Playlist: ${playlist?.name} (${config.selectedTests.length} tests)`));
-    console.log(chalk.white(`🧪 Tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
+    console.log(chalk.white(`Playlist: ${playlist?.name} (${config.selectedTests.length} tests)`));
+    console.log(chalk.white(`Tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
   } else {
-    console.log(chalk.white(`🧪 Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
+    console.log(chalk.white(`Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
   }
 
   console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
