@@ -132,19 +132,6 @@ The interactive mode will guide you through:
 - Node.js 18.0.0 or higher
 - Playwright browser binaries (install with `npx playwright install`)
 
-## Recent Updates
-
-### Version 2.0+ Features
-- ✅ **Multi-Phase Execution System** - Optimized parallel processing with phase-based coordination for best results
-- ✅ **Interactive HTML Reports** - Rich dashboard with embedded screenshots and navigation
-- ✅ **AI-Powered Site Summaries** - Comprehensive site analysis with technology detection
-- ✅ **Content Scraping** - Full page content extraction to structured markdown
-- ✅ **XML Sitemap Generation** - SEO-optimized sitemaps with proper metadata
-- ✅ **Enhanced Loading Screens** - Real-time progress tracking with visual feedback
-- ✅ **Configurable Test Selection** - Flexible test combinations and configuration
-- ✅ **QR Code Generation** - Easy mobile testing with QR code links
-- ✅ **Session Persistence** - Robust session data management and recovery
-
 ## Roadmap
 
 ### Planned Features

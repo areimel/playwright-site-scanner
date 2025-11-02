@@ -14,6 +14,7 @@ import { SitemapTester } from '@lib/sitemap-tester.js';
 import { ContentScraper } from '@lib/content-scraper.js';
 import { SiteSummaryTester } from '@lib/site-summary-tester.js';
 import { ApiKeyTester } from '@lib/api-key-tester.js';
+import { LlmsTxtGenerator } from '@lib/llms-txt-generator.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -84,7 +85,7 @@ export class TestOrchestrator {
       // 2. Display configuration and execution strategy
       this.uiStyler.displayInitialization('Initializing browser and execution strategy...');
       const executionStrategy = await TestConfigManager.processExecutionStrategy(config);
-      this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
+      // this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
 
       // 2.5. Create session progress tracker (needs to know page count, so after strategy processing)
       const estimatedPages = config.crawlSite ? 50 : 1; // Rough estimate, will be updated after crawling
@@ -160,6 +161,7 @@ export class TestOrchestrator {
       new ContentScraper(),
       new SiteSummaryTester(),
       new ApiKeyTester(),
+      new LlmsTxtGenerator(),
       this.errorHandler,
       this.uiStyler
     );
