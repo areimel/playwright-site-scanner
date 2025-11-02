@@ -85,7 +85,7 @@ export class TestOrchestrator {
       // 2. Display configuration and execution strategy
       this.uiStyler.displayInitialization('Initializing browser and execution strategy...');
       const executionStrategy = await TestConfigManager.processExecutionStrategy(config);
-      this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
+      // this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
 
       // 2.5. Create session progress tracker (needs to know page count, so after strategy processing)
       const estimatedPages = config.crawlSite ? 50 : 1; // Rough estimate, will be updated after crawling
