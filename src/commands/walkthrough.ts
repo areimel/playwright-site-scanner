@@ -101,6 +101,9 @@ export async function runWalkthrough(): Promise<void> {
             return 'Please select at least one test to run.';
           }
           return true;
+        },
+        theme: {
+          helpMode: 'always'
         }
       }
     ]);
