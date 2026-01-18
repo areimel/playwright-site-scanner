@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '@shared/index.js';
 import { validateUrl, resolveUrlByProbing } from '@utils/validation.js';
 import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
+import { TestConfigManager } from '@orchestrator/test-config-manager.js';
 import { ReporterManager } from '@utils/reporter-manager.js';
 import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig, getAvailablePlaylistsAsArray, getPlaylistById } from '@utils/config-loader.js';
 import { PlaylistManager } from '@orchestrator/playlists.js';
@@ -173,6 +174,18 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   }
   
   console.log(chalk.cyan('═'.repeat(50)));
+
+  // Check for tests that will be filtered out due to single-page scan
+  if (!config.crawlSite) {
+    const { disabledTests } = await TestConfigManager.filterTestsForSinglePageScan(config);
+    if (disabledTests.length > 0) {
+      console.log(chalk.yellow('\nThe following tests require site crawling and will be skipped:'));
+      disabledTests.forEach(testId => {
+        console.log(chalk.yellow(`   - ${TestConfigManager.getTestName(testId)}`));
+      });
+      console.log(chalk.gray('   Enable "Crawl entire site" to run these tests.\n'));
+    }
+  }
 
   const { confirmed } = await inquirer.prompt([
     {

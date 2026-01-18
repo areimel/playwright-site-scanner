@@ -121,14 +121,21 @@ export class TestConfigManager {
       }
     }
 
+    // For single-page scans, filter out tests that require crawling before validation
+    let configToValidate = config;
+    if (!config.crawlSite) {
+      const { filteredConfig } = await this.filterTestsForSinglePageScan(config);
+      configToValidate = filteredConfig;
+    }
+
     // Validate test dependencies
-    const enabledTestIds = this.getEnabledTestIds(config);
-    
+    const enabledTestIds = this.getEnabledTestIds(configToValidate);
+
     // If crawlSite is true, add 'site-crawling' to the enabled test IDs for dependency validation
-    const validationTestIds = config.crawlSite 
-      ? [...enabledTestIds, 'site-crawling'] 
+    const validationTestIds = configToValidate.crawlSite
+      ? [...enabledTestIds, 'site-crawling']
       : enabledTestIds;
-      
+
     const dependencyValidation = await TestPhaseManager.validateDependencies(validationTestIds);
     if (!dependencyValidation.valid) {
       errors.push(`Missing dependencies: ${dependencyValidation.missingDependencies.join(', ')}`);
@@ -216,9 +223,73 @@ export class TestConfigManager {
     const testClassifications = await getTestClassifications();
     const classification = testClassifications[testId];
     if (!classification) return false;
-    
-    return classification.dependencies.includes('site-crawling') || 
+
+    return classification.dependencies.includes('site-crawling') ||
            classification.scope === 'session';
+  }
+
+  /**
+   * Gets all tests that require site crawling (directly or transitively)
+   */
+  static async getTestsRequiringCrawling(): Promise<string[]> {
+    const testClassifications = await getTestClassifications();
+    const crawlingDependents: Set<string> = new Set();
+
+    // Iteratively find all tests that depend on site-crawling
+    let foundNew = true;
+    while (foundNew) {
+      foundNew = false;
+      for (const [testId, classification] of Object.entries(testClassifications)) {
+        if (crawlingDependents.has(testId)) continue;
+
+        // Check if depends on site-crawling directly
+        if (classification.dependencies.includes('site-crawling')) {
+          crawlingDependents.add(testId);
+          foundNew = true;
+          continue;
+        }
+
+        // Check if depends on a test that requires crawling
+        for (const dep of classification.dependencies) {
+          if (crawlingDependents.has(dep)) {
+            crawlingDependents.add(testId);
+            foundNew = true;
+            break;
+          }
+        }
+      }
+    }
+
+    return Array.from(crawlingDependents);
+  }
+
+  /**
+   * Filters out tests incompatible with single-page scanning
+   * Returns the filtered config and list of disabled tests
+   */
+  static async filterTestsForSinglePageScan(config: TestConfig): Promise<{
+    filteredConfig: TestConfig;
+    disabledTests: string[];
+  }> {
+    if (config.crawlSite) {
+      return { filteredConfig: config, disabledTests: [] };
+    }
+
+    const crawlingTests = await this.getTestsRequiringCrawling();
+    const disabledTests: string[] = [];
+
+    const filteredSelectedTests = config.selectedTests.map(test => {
+      if (test.enabled && crawlingTests.includes(test.id)) {
+        disabledTests.push(test.id);
+        return { ...test, enabled: false };
+      }
+      return test;
+    });
+
+    return {
+      filteredConfig: { ...config, selectedTests: filteredSelectedTests },
+      disabledTests
+    };
   }
 
   /**
