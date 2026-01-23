@@ -273,3 +273,4 @@ playlists:
 defaults:
   url: "https://example.com"
   crawlSite: true
+  crawlMode: smart  # 'single', 'smart', or 'full'

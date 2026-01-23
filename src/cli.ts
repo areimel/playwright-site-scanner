@@ -97,9 +97,11 @@ async function setupCommands() {
         const viewports = await getViewportsAsArray();
         const reporter = await getReporterConfig();
         
+        const crawlSite = options.crawl !== false;
         const config: TestConfig = {
           url,
-          crawlSite: options.crawl !== false,
+          crawlSite,
+          crawlMode: crawlSite ? 'smart' : 'single',
           selectedTests: availableTests.map(test => ({ ...test, enabled: true })),
           viewports,
           reporter

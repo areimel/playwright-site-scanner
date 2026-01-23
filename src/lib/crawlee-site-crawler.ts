@@ -13,13 +13,34 @@ export class CrawleeSiteCrawler {
   private discoveredUrls: Set<string> = new Set();
   private maxPages: number = 50;
 
-  async crawlSite(startUrl: string, maxPages: number = 50): Promise<string[]> {
+  // Patterns that identify INDIVIDUAL templated content pages (not section indexes)
+  // These patterns require a slug after the section path, so /blog/ won't match but /blog/my-post/ will
+  private readonly TEMPLATE_PATTERNS: { name: string; pattern: RegExp }[] = [
+    { name: 'blog-post', pattern: /\/blog\/[^\/]+\/?$/i },         // /blog/my-post/ (NOT /blog/)
+    { name: 'news-article', pattern: /\/news\/[^\/]+\/?$/i },      // /news/story/ (NOT /news/)
+    { name: 'post', pattern: /\/posts?\/[^\/]+\/?$/i },            // /post/slug/ or /posts/slug/
+    { name: 'article', pattern: /\/articles?\/[^\/]+\/?$/i },      // /article/slug/
+    { name: 'date-yyyy-mm', pattern: /\/\d{4}\/\d{2}\/[^\/]+\/?$/i },     // /2024/01/title/
+    { name: 'date-yyyy-mm-dd', pattern: /\/\d{4}\/\d{2}\/\d{2}\/[^\/]+\/?$/i }, // /2024/01/15/title/
+    { name: 'pagination', pattern: /\/page\/\d+\/?$/i },           // /page/2/
+    { name: 'pagination-query', pattern: /[?&]page=\d+/i },        // ?page=2
+    { name: 'product', pattern: /\/products?\/[^\/]+\/?$/i },      // /product/item/
+    { name: 'category-item', pattern: /\/category\/[^\/]+\/[^\/]+\/?$/i }, // /category/tech/post/
+    { name: 'tag-item', pattern: /\/tags?\/[^\/]+\/?$/i },         // /tag/javascript/
+  ];
+
+  // Track which template types have been found (for smart crawl)
+  private foundTemplateTypes: Set<string> = new Set();
+
+  async crawlSite(startUrl: string, maxPages: number = 50, mode: 'smart' | 'full' = 'full'): Promise<string[]> {
     this.maxPages = maxPages;
     this.discoveredUrls.clear();
+    this.foundTemplateTypes.clear(); // Reset template tracking for new crawl
 
     const baseUrl = new URL(startUrl).origin;
+    const modeLabel = mode === 'smart' ? 'smart mode (skipping duplicate templates)' : 'full mode';
     console.log(chalk.gray(`    🕷️  Starting site crawl from ${startUrl}`));
-    console.log(chalk.gray(`    🔗 Will discover up to ${maxPages} pages on ${baseUrl}`));
+    console.log(chalk.gray(`    🔗 Will discover up to ${maxPages} pages on ${baseUrl} [${modeLabel}]`));
 
     try {
       // Clear any existing dataset
@@ -37,6 +58,12 @@ export class CrawleeSiteCrawler {
             // Double-check URL filtering for any URLs that might have slipped through
             if (!self.isPageUrl(request.loadedUrl || request.url)) {
               console.log(chalk.yellow(`      🚫 Skipping filtered page: ${request.loadedUrl || request.url}`));
+              return;
+            }
+
+            // Double-check template filtering in smart mode
+            if (self.shouldSkipTemplatedUrl(request.loadedUrl || request.url, mode)) {
+              console.log(chalk.yellow(`      🔁 Skipping duplicate template page: ${request.loadedUrl || request.url}`));
               return;
             }
 
@@ -63,6 +90,10 @@ export class CrawleeSiteCrawler {
                 if (!self.isPageUrl(req.url)) {
                   console.log(chalk.gray(`      🚫 Skipping filtered URL: ${req.url}`));
                   return false; // Skip this URL
+                }
+                if (self.shouldSkipTemplatedUrl(req.url, mode)) {
+                  console.log(chalk.gray(`      🔁 Skipping duplicate template: ${req.url}`));
+                  return false; // Skip duplicate template
                 }
                 return req;
               }
@@ -168,6 +199,34 @@ export class CrawleeSiteCrawler {
       }
 
       return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Check if URL matches a template pattern and whether we should skip it (smart mode)
+   * Returns true if the URL should be skipped
+   */
+  private shouldSkipTemplatedUrl(url: string, mode: 'smart' | 'full'): boolean {
+    if (mode === 'full') return false;
+
+    try {
+      const urlPath = new URL(url).pathname;
+
+      for (const { name, pattern } of this.TEMPLATE_PATTERNS) {
+        if (pattern.test(urlPath)) {
+          if (this.foundTemplateTypes.has(name)) {
+            // Already have one of this template type, skip
+            return true;
+          }
+          // First of this type, allow it but mark as found
+          this.foundTemplateTypes.add(name);
+          return false;
+        }
+      }
+
+      return false; // Not a template, allow it
     } catch (error) {
       return false;
     }

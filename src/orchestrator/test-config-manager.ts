@@ -352,6 +352,7 @@ export class TestConfigManager {
     return {
       url,
       crawlSite: true,
+      crawlMode: 'smart',
       selectedTests: availableTests.map(test => ({ ...test, enabled: false })),
       viewports,
       reporter
@@ -363,14 +364,15 @@ export class TestConfigManager {
    */
   static async mergeWithDefaults(partialConfig: Partial<TestConfig>, baseUrl: string): Promise<TestConfig> {
     const defaultConfig = await this.createDefaultConfig(baseUrl);
-    
+
     return {
       url: partialConfig.url || defaultConfig.url,
       crawlSite: partialConfig.crawlSite ?? defaultConfig.crawlSite,
+      crawlMode: partialConfig.crawlMode ?? defaultConfig.crawlMode,
       selectedTests: partialConfig.selectedTests || defaultConfig.selectedTests,
       viewports: partialConfig.viewports || defaultConfig.viewports,
-      reporter: partialConfig.reporter ? 
-        { ...defaultConfig.reporter, ...partialConfig.reporter } : 
+      reporter: partialConfig.reporter ?
+        { ...defaultConfig.reporter, ...partialConfig.reporter } :
         defaultConfig.reporter
     };
   }

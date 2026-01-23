@@ -128,4 +128,5 @@ export interface CLIConfig {
 export interface DefaultsConfig {
   url: string;
   crawlSite: boolean;
+  crawlMode?: 'single' | 'smart' | 'full';
 }
