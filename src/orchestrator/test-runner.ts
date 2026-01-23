@@ -104,7 +104,9 @@ export class TestRunner {
     let urls: string[] = [config.url];
     if (config.crawlSite || phase1Plan.sessionTests.includes('site-crawling')) {
       this.uiStyler.displayProgress('🕷️  Discovering pages...');
-      urls = await this.siteCrawler.crawlSite(config.url);
+      // Pass crawl mode to crawler (defaults to 'full' for backward compatibility)
+      const crawlMode = config.crawlMode || 'full';
+      urls = await this.siteCrawler.crawlSite(config.url, 50, crawlMode === 'single' ? 'full' : crawlMode);
       this.uiStyler.displaySiteDiscovery(urls.length);
     }
     

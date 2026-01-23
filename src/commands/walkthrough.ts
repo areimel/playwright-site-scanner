@@ -1,8 +1,9 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { TestConfig, TestType, ViewportConfig, ReporterConfig } from '@shared/index.js';
+import { TestConfig, TestType, ViewportConfig, ReporterConfig, CrawlMode } from '@shared/index.js';
 import { validateUrl, resolveUrlByProbing } from '@utils/validation.js';
 import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
+import { TestConfigManager } from '@orchestrator/test-config-manager.js';
 import { ReporterManager } from '@utils/reporter-manager.js';
 import { getAvailableTestsAsArray, getViewportsAsArray, getReporterConfig, getDefaultsConfig, getAvailablePlaylistsAsArray, getPlaylistById } from '@utils/config-loader.js';
 import { PlaylistManager } from '@orchestrator/playlists.js';
@@ -36,19 +37,46 @@ export async function runWalkthrough(): Promise<void> {
   }
 
   // Step 2: Ask about site crawling
-  const { crawlSite } = await inquirer.prompt([
+  // Display info about tests that require multi-page crawling
+  console.log(chalk.gray('  Note: Sitemap Generator, Site Summary, and LLMs.txt require'));
+  console.log(chalk.gray('  crawling multiple pages and will be disabled for single-page scans.\n'));
+
+  const { crawlMode } = await inquirer.prompt<{ crawlMode: CrawlMode }>([
     {
-      type: 'confirm',
-      name: 'crawlSite',
-      message: 'Would you like to crawl the entire site and test all pages?',
-      default: defaults.crawlSite
+      type: 'list',
+      name: 'crawlMode',
+      message: 'Do you want to scan a single page, or the full site?',
+      choices: [
+        {
+          name: 'Just this page - Scan only the URL provided',
+          value: 'single',
+          short: 'Single page'
+        },
+        {
+          name: 'Smart site crawl (Recommended) - Full site, skip duplicate templated pages',
+          value: 'smart',
+          short: 'Smart crawl'
+        },
+        {
+          name: 'Full site crawl - Crawl all discovered pages',
+          value: 'full',
+          short: 'Full crawl'
+        }
+      ],
+      default: defaults.crawlMode || 'smart',
+      loop: false
     }
   ]);
 
-  const crawlMessage = crawlSite
-    ? chalk.yellow('🕷️  Will crawl entire site')
-    : chalk.yellow('📄 Will test single page only');
-  console.log(`${crawlMessage}\n`);
+  // Derive crawlSite boolean for backward compatibility
+  const crawlSite = crawlMode !== 'single';
+
+  const crawlMessages: Record<CrawlMode, string> = {
+    'single': '📄 Will test single page only',
+    'smart': '🕷️  Will crawl site (smart mode - skipping duplicate templates)',
+    'full': '🕷️  Will crawl entire site (all pages)'
+  };
+  console.log(chalk.yellow(crawlMessages[crawlMode]) + '\n');
 
   // Step 3: Select playlist or manual test selection
   console.log(chalk.blue('Choose your testing approach:\n'));
@@ -133,6 +161,7 @@ export async function runWalkthrough(): Promise<void> {
   await showConfirmation({
     url: resolvedUrl,
     crawlSite,
+    crawlMode,
     selectedTests,
     viewports,
     reporter: reporterConfig,
@@ -143,10 +172,16 @@ export async function runWalkthrough(): Promise<void> {
 
 
 async function showConfirmation(config: TestConfig): Promise<void> {
+  const crawlModeLabels: Record<CrawlMode, string> = {
+    'single': 'Single page only',
+    'smart': 'Smart crawl (skip duplicate templates)',
+    'full': 'Full site crawl'
+  };
+
   console.log(chalk.blue('Test Configuration Summary:'));
   console.log(chalk.cyan('═'.repeat(50)));
   console.log(chalk.white(`URL: ${config.url}`));
-  console.log(chalk.white(`Crawl entire site: ${config.crawlSite ? 'Yes' : 'No'}`));
+  console.log(chalk.white(`Crawl mode: ${crawlModeLabels[config.crawlMode || 'full']}`));
 
   if (config.usedPlaylist) {
     const playlist = await getPlaylistById(config.usedPlaylist);
@@ -173,6 +208,18 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   }
   
   console.log(chalk.cyan('═'.repeat(50)));
+
+  // Check for tests that will be filtered out due to single-page scan
+  if (!config.crawlSite) {
+    const { disabledTests } = await TestConfigManager.filterTestsForSinglePageScan(config);
+    if (disabledTests.length > 0) {
+      console.log(chalk.yellow('\nThe following tests require site crawling and will be skipped:'));
+      disabledTests.forEach(testId => {
+        console.log(chalk.yellow(`   - ${TestConfigManager.getTestName(testId)}`));
+      });
+      console.log(chalk.gray('   Enable "Crawl entire site" to run these tests.\n'));
+    }
+  }
 
   const { confirmed } = await inquirer.prompt([
     {

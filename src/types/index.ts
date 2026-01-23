@@ -1,6 +1,9 @@
+export type CrawlMode = 'single' | 'smart' | 'full';
+
 export interface TestConfig {
   url: string;
-  crawlSite: boolean;
+  crawlSite: boolean;           // Keep for backward compatibility
+  crawlMode: CrawlMode;         // New: 'single' | 'smart' | 'full'
   selectedTests: TestType[];
   viewports: ViewportConfig[];
   reporter?: ReporterConfig;
