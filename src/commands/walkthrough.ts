@@ -1,6 +1,6 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { TestConfig, TestType, ViewportConfig, ReporterConfig, CrawlMode } from '@shared/index.js';
+import { TestConfig, TestType, ViewportConfig, ReporterConfig, CrawlMode, DeepCrawlConfig } from '@shared/index.js';
 import { validateUrl, resolveUrlByProbing } from '@utils/validation.js';
 import { TestOrchestrator } from '@orchestrator/test-orchestrator.js';
 import { TestConfigManager } from '@orchestrator/test-config-manager.js';
@@ -58,9 +58,14 @@ export async function runWalkthrough(): Promise<void> {
           short: 'Smart crawl'
         },
         {
-          name: 'Full site crawl - Crawl all discovered pages',
+          name: 'Full site crawl - Crawl all discovered pages (max 50)',
           value: 'full',
           short: 'Full crawl'
+        },
+        {
+          name: chalk.yellow('Deep site crawl - No page limit, sitemap-only (for large sites)'),
+          value: 'deep',
+          short: 'Deep crawl'
         }
       ],
       default: defaults.crawlMode || 'smart',
@@ -74,9 +79,59 @@ export async function runWalkthrough(): Promise<void> {
   const crawlMessages: Record<CrawlMode, string> = {
     'single': '📄 Will test single page only',
     'smart': '🕷️  Will crawl site (smart mode - skipping duplicate templates)',
-    'full': '🕷️  Will crawl entire site (all pages)'
+    'full': '🕷️  Will crawl entire site (all pages)',
+    'deep': '🕷️  Deep crawl mode - unlimited pages, sitemap generation only'
   };
   console.log(chalk.yellow(crawlMessages[crawlMode]) + '\n');
+
+  // Deep crawl specific configuration
+  let deepCrawlConfig: DeepCrawlConfig | undefined;
+
+  if (crawlMode === 'deep') {
+    console.log(chalk.yellow('⚠️  Deep Crawl Mode Selected'));
+    console.log(chalk.gray('  This mode removes all page limits and is designed for large sites.'));
+    console.log(chalk.gray('  Only sitemap generation is available in this mode.\n'));
+
+    const { crawlerType } = await inquirer.prompt<{ crawlerType: 'playwright' | 'cheerio' }>([
+      {
+        type: 'list',
+        name: 'crawlerType',
+        message: 'Which crawler would you like to use?',
+        choices: [
+          {
+            name: 'Lightweight (HTTP-only) - Faster, works for most sites (Recommended)',
+            value: 'cheerio',
+            short: 'Lightweight'
+          },
+          {
+            name: 'Full browser - Slower, required for JavaScript-heavy sites',
+            value: 'playwright',
+            short: 'Browser'
+          }
+        ],
+        default: 'cheerio',
+        loop: false
+      }
+    ]);
+
+    const { resumeFromCheckpoint } = await inquirer.prompt<{ resumeFromCheckpoint: boolean }>([
+      {
+        type: 'confirm',
+        name: 'resumeFromCheckpoint',
+        message: 'Resume from a previous checkpoint if available?',
+        default: true
+      }
+    ]);
+
+    deepCrawlConfig = {
+      enabled: true,
+      crawlerType,
+      checkpointInterval: 100,
+      resumeFromCheckpoint
+    };
+
+    console.log(chalk.green(`✅ Deep crawl configured: ${crawlerType} crawler, ${resumeFromCheckpoint ? 'will resume' : 'fresh start'}\n`));
+  }
 
   // Step 3: Select playlist or manual test selection
   console.log(chalk.blue('Choose your testing approach:\n'));
@@ -166,7 +221,8 @@ export async function runWalkthrough(): Promise<void> {
     viewports,
     reporter: reporterConfig,
     verboseMode,
-    usedPlaylist
+    usedPlaylist,
+    deepCrawlConfig
   });
 }
 
@@ -175,13 +231,20 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   const crawlModeLabels: Record<CrawlMode, string> = {
     'single': 'Single page only',
     'smart': 'Smart crawl (skip duplicate templates)',
-    'full': 'Full site crawl'
+    'full': 'Full site crawl',
+    'deep': 'Deep crawl (unlimited pages, sitemap-only)'
   };
 
   console.log(chalk.blue('Test Configuration Summary:'));
   console.log(chalk.cyan('═'.repeat(50)));
   console.log(chalk.white(`URL: ${config.url}`));
   console.log(chalk.white(`Crawl mode: ${crawlModeLabels[config.crawlMode || 'full']}`));
+
+  // Show deep crawl specific info
+  if (config.crawlMode === 'deep' && config.deepCrawlConfig) {
+    console.log(chalk.white(`🕷️  Crawler: ${config.deepCrawlConfig.crawlerType === 'cheerio' ? 'Lightweight (HTTP)' : 'Full browser'}`));
+    console.log(chalk.white(`💾 Resume: ${config.deepCrawlConfig.resumeFromCheckpoint ? 'Yes (if checkpoint exists)' : 'No (fresh start)'}`));
+  }
 
   if (config.usedPlaylist) {
     const playlist = await getPlaylistById(config.usedPlaylist);
@@ -191,9 +254,12 @@ async function showConfirmation(config: TestConfig): Promise<void> {
     console.log(chalk.white(`Selected tests: ${config.selectedTests.map(t => t.name).join(', ')}`));
   }
 
-  console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
+  // Only show viewports for non-deep mode (deep mode doesn't run screenshot tests)
+  if (config.crawlMode !== 'deep') {
+    console.log(chalk.white(`📱 Viewports: ${config.viewports.map(v => v.name).join(', ')}`));
+  }
   console.log(chalk.white(`🔧 Output mode: ${config.verboseMode ? 'Verbose logging' : 'Clean loading screen'}`));
-  
+
   // Display reporter configuration
   if (config.reporter?.enabled) {
     console.log(chalk.white(`📊 HTML Report: Enabled (${config.reporter.openBehavior})`));
@@ -206,11 +272,22 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   } else {
     console.log(chalk.white(`📊 HTML Report: Disabled`));
   }
-  
+
   console.log(chalk.cyan('═'.repeat(50)));
 
+  // Check for tests that will be filtered out due to deep crawl mode
+  if (config.crawlMode === 'deep') {
+    const { disabledTests } = await TestConfigManager.filterTestsForDeepCrawl(config);
+    if (disabledTests.length > 0) {
+      console.log(chalk.yellow('\nThe following tests are disabled in deep crawl mode:'));
+      disabledTests.forEach(testId => {
+        console.log(chalk.yellow(`   - ${TestConfigManager.getTestName(testId)}`));
+      });
+      console.log(chalk.gray('   Deep crawl mode only supports sitemap generation.\n'));
+    }
+  }
   // Check for tests that will be filtered out due to single-page scan
-  if (!config.crawlSite) {
+  else if (!config.crawlSite) {
     const { disabledTests } = await TestConfigManager.filterTestsForSinglePageScan(config);
     if (disabledTests.length > 0) {
       console.log(chalk.yellow('\nThe following tests require site crawling and will be skipped:'));
