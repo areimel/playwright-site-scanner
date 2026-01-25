@@ -9,3 +9,4 @@ storage/
 .env.test.local
 .env.production.local
 
+nul

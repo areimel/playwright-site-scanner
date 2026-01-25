@@ -293,6 +293,53 @@ export class TestConfigManager {
   }
 
   /**
+   * Gets tests allowed in deep crawl mode
+   * Deep crawl is designed for comprehensive URL discovery, not page analysis
+   */
+  static getDeepCrawlAllowedTests(): string[] {
+    return ['sitemap'];
+  }
+
+  /**
+   * Filters out tests incompatible with deep crawl mode
+   * Deep crawl only allows sitemap generation (too resource-intensive for screenshots, etc.)
+   * Returns the filtered config and list of disabled tests
+   */
+  static async filterTestsForDeepCrawl(config: TestConfig): Promise<{
+    filteredConfig: TestConfig;
+    disabledTests: string[];
+  }> {
+    if (config.crawlMode !== 'deep') {
+      return { filteredConfig: config, disabledTests: [] };
+    }
+
+    const allowedTests = this.getDeepCrawlAllowedTests();
+    const disabledTests: string[] = [];
+
+    const filteredSelectedTests = config.selectedTests.map(test => {
+      if (test.enabled && !allowedTests.includes(test.id)) {
+        disabledTests.push(test.id);
+        return { ...test, enabled: false };
+      }
+      return test;
+    });
+
+    // In deep mode, always ensure sitemap is enabled
+    const sitemapTest = filteredSelectedTests.find(t => t.id === 'sitemap');
+    if (sitemapTest && !sitemapTest.enabled) {
+      const sitemapIndex = filteredSelectedTests.findIndex(t => t.id === 'sitemap');
+      if (sitemapIndex >= 0) {
+        filteredSelectedTests[sitemapIndex] = { ...filteredSelectedTests[sitemapIndex], enabled: true };
+      }
+    }
+
+    return {
+      filteredConfig: { ...config, selectedTests: filteredSelectedTests },
+      disabledTests
+    };
+  }
+
+  /**
    * Gets resource-intensive tests from configuration
    */
   static async getResourceIntensiveTests(config: TestConfig): Promise<string[]> {
