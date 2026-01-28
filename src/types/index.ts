@@ -1,14 +1,56 @@
-export type CrawlMode = 'single' | 'smart' | 'full';
+export type CrawlMode = 'single' | 'smart' | 'full' | 'deep';
+
+// Deep crawl configuration for unlimited page crawling
+export interface DeepCrawlConfig {
+  enabled: boolean;
+  crawlerType: 'playwright' | 'cheerio';
+  checkpointInterval: number;  // Save every N pages (default: 100)
+  resumeFromCheckpoint: boolean;
+}
+
+// Checkpoint for resuming interrupted deep crawls
+export interface CrawlCheckpoint {
+  version: string;
+  sessionId: string;
+  startUrl: string;
+  crawlerType: 'playwright' | 'cheerio';
+  createdAt: string;
+  lastUpdatedAt: string;
+  status: 'in-progress' | 'completed' | 'failed';
+  statistics: CrawlStatistics;
+  discoveredUrls: string[];
+  crawledUrls: string[];
+  pendingUrls: string[];
+  failedUrls: FailedUrl[];
+}
+
+export interface CrawlStatistics {
+  totalDiscovered: number;
+  totalCrawled: number;
+  totalFailed: number;
+  totalPending: number;
+  elapsedTimeMs: number;
+  averagePageTimeMs: number;
+  startTime: string;
+}
+
+export interface FailedUrl {
+  url: string;
+  error: string;
+  attempts: number;
+  lastAttemptAt: string;
+}
 
 export interface TestConfig {
   url: string;
   crawlSite: boolean;           // Keep for backward compatibility
-  crawlMode: CrawlMode;         // New: 'single' | 'smart' | 'full'
+  crawlMode: CrawlMode;         // 'single' | 'smart' | 'full' | 'deep'
   selectedTests: TestType[];
   viewports: ViewportConfig[];
   reporter?: ReporterConfig;
   verboseMode?: boolean;
   usedPlaylist?: string | null;
+  deepCrawlConfig?: DeepCrawlConfig;  // Configuration for deep crawl mode
 }
 
 export interface TestType {
