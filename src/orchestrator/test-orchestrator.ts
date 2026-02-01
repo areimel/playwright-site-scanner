@@ -82,20 +82,27 @@ export class TestOrchestrator {
         throw new Error(`Configuration validation failed: ${configValidation.errors.join(', ')}`);
       }
 
+      // 1.5. Filter out crawling-dependent tests for single-page scans
+      let effectiveConfig = config;
+      if (!config.crawlSite) {
+        const { filteredConfig } = await TestConfigManager.filterTestsForSinglePageScan(config);
+        effectiveConfig = filteredConfig;
+      }
+
       // 2. Display configuration and execution strategy
       this.uiStyler.displayInitialization('Initializing browser and execution strategy...');
-      const executionStrategy = await TestConfigManager.processExecutionStrategy(config);
+      const executionStrategy = await TestConfigManager.processExecutionStrategy(effectiveConfig);
       // this.uiStyler.displayExecutionStrategy(executionStrategy.phases.length, executionStrategy.totalEstimatedDuration);
 
       // 2.5. Create session progress tracker (needs to know page count, so after strategy processing)
-      const estimatedPages = config.crawlSite ? 50 : 1; // Rough estimate, will be updated after crawling
-      this.sessionProgressTracker = SessionProgressTracker.createForConfig(config, estimatedPages);
+      const estimatedPages = effectiveConfig.crawlSite ? 50 : 1; // Rough estimate, will be updated after crawling
+      this.sessionProgressTracker = SessionProgressTracker.createForConfig(effectiveConfig, estimatedPages);
 
       // 3. Initialize browser and session infrastructure
-      await this.initializeSession(config, sessionSummary);
+      await this.initializeSession(effectiveConfig, sessionSummary);
 
       // 4. Execute all three phases using TestRunner
-      await this.executeAllPhases(config, executionStrategy);
+      await this.executeAllPhases(effectiveConfig, executionStrategy);
 
       // 5. Generate final reports and summaries
       await this.generateFinalResults(sessionSummary);

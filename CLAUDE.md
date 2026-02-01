@@ -5,15 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Build and Run
-- `npm run build` - Clean and compile TypeScript to `dist/` directory
-- `npm start` - Run the CLI tool (starts interactive walkthrough)
-- `npm run dev` - Build and start in one command (development workflow)
-- `npm run clean` - Remove the `arda-site-scan-sessions/` directory
+- `pnpm run build` - Clean and compile TypeScript to `dist/` directory
+- `pnpm start` - Run the CLI tool (starts interactive walkthrough)
+- `pnpm run dev` - Build and start in one command (development workflow)
+- `pnpm run clean` - Remove the `arda-site-scan-sessions/` directory
 
 ### Running the Tool
 The CLI defaults to interactive mode when run without arguments:
 ```bash
-npm start
+pnpm start
 # or
 node dist/cli.js
 ```
@@ -390,8 +390,8 @@ After implementing your new test:
 
 1. **Build and test:**
 ```bash
-npm run build
-npm run dev
+pnpm run build
+pnpm run dev
 ```
 
 2. **Verify integration:**

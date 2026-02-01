@@ -5,6 +5,8 @@ import { ExecutionStrategy, PhaseExecutionPlan } from '@shared/test-phases.js';
 import { SessionDataManager } from '@utils/session-data-store.js';
 import { ParallelExecutor } from '@utils/parallel-executor.js';
 import { CrawleeSiteCrawler } from '@lib/crawlee-site-crawler.js';
+import { CheerioSiteCrawler } from '@lib/cheerio-site-crawler.js';
+import { CrawlCheckpointManager } from '@lib/crawl-checkpoint-manager.js';
 import { ScreenshotTester } from '@lib/screenshot-tester.js';
 import { SEOTester } from '@lib/seo-tester.js';
 import { AccessibilityTester } from '@lib/accessibility-tester.js';
@@ -89,6 +91,61 @@ export class TestRunner {
   }
 
   /**
+   * Execute deep crawl with checkpoint support
+   * Uses either Cheerio (lightweight) or Playwright crawler based on config
+   */
+  private async executeDeepCrawl(config: TestConfig): Promise<string[]> {
+    const deepConfig = config.deepCrawlConfig;
+    const crawlerType = deepConfig?.crawlerType || 'cheerio';
+    const resumeFromCheckpoint = deepConfig?.resumeFromCheckpoint ?? true;
+    const checkpointInterval = deepConfig?.checkpointInterval || 100;
+
+    this.uiStyler.displayProgress(`🕷️  Starting deep crawl (${crawlerType === 'cheerio' ? 'lightweight' : 'browser'} mode)...`);
+
+    // Create checkpoint manager
+    const checkpointManager = new CrawlCheckpointManager({
+      checkpointInterval,
+      maxRetries: 3
+    });
+
+    // Check if we can resume from a previous checkpoint
+    const canResume = resumeFromCheckpoint && await checkpointManager.canResume(this.dataManager.sessionId);
+
+    if (canResume) {
+      this.uiStyler.displayProgress('📂 Found existing checkpoint, resuming crawl...');
+      await checkpointManager.loadCheckpoint(this.dataManager.sessionId);
+    } else {
+      // Create new checkpoint
+      await checkpointManager.createCheckpoint(
+        this.dataManager.sessionId,
+        config.url,
+        crawlerType
+      );
+    }
+
+    let urls: string[];
+
+    if (crawlerType === 'cheerio') {
+      // Use lightweight Cheerio crawler
+      const cheerioCrawler = new CheerioSiteCrawler();
+      urls = await cheerioCrawler.crawlSite(config.url, 'deep', {
+        checkpointManager,
+        resumeFromCheckpoint: canResume,
+        concurrency: 10
+      });
+    } else {
+      // Use Playwright crawler for JavaScript-heavy sites
+      urls = await this.siteCrawler.crawlSite(config.url, Number.MAX_SAFE_INTEGER, 'deep', {
+        checkpointManager,
+        resumeFromCheckpoint: canResume,
+        concurrency: 3
+      });
+    }
+
+    return urls;
+  }
+
+  /**
    * Phase 1: Data Discovery & Collection
    * - Site crawling (single execution)
    * - Content scraping for all pages
@@ -99,15 +156,22 @@ export class TestRunner {
     if (!phase1Plan) return;
 
     this.uiStyler.displayPhaseStart(1, 'Data Discovery & Collection');
-    
+
     // Step 1: Site crawling (if needed)
     let urls: string[] = [config.url];
     if (config.crawlSite || phase1Plan.sessionTests.includes('site-crawling')) {
-      this.uiStyler.displayProgress('🕷️  Discovering pages...');
-      urls = await this.siteCrawler.crawlSite(config.url);
+      const crawlMode = config.crawlMode || 'full';
+
+      // Handle deep crawl mode with checkpoint support
+      if (crawlMode === 'deep') {
+        urls = await this.executeDeepCrawl(config);
+      } else {
+        this.uiStyler.displayProgress('🕷️  Discovering pages...');
+        urls = await this.siteCrawler.crawlSite(config.url, 50, crawlMode === 'single' ? 'full' : crawlMode);
+      }
       this.uiStyler.displaySiteDiscovery(urls.length);
     }
-    
+
     this.dataManager.setUrls(urls);
 
     // Step 2: Execute session-level tests in parallel

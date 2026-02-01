@@ -47,10 +47,10 @@ Landing Page: COMING SOON
 
 ```bash
 # Install the package globally
-npm install -g arda-site-scan
+pnpm add -g arda-site-scan
 
 # Install Playwright browser binaries (required)
-npx playwright install
+pnpm exec playwright install
 ```
 
 ### Local Development Setup - Customize your own version
@@ -59,8 +59,8 @@ npx playwright install
 # Clone and setup for development
 git clone <repository-url>
 cd playwright-site-scanner
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## Usage
@@ -74,7 +74,7 @@ Simply run the CLI without arguments to start the interactive walkthrough:
 arda-site-scan
 
 # Local Dev
-npm start
+pnpm start
 ```
 
 The interactive mode will guide you through:
@@ -130,7 +130,7 @@ The interactive mode will guide you through:
 ## Requirements
 
 - Node.js 18.0.0 or higher
-- Playwright browser binaries (install with `npx playwright install`)
+- Playwright browser binaries (install with `pnpm exec playwright install`)
 
 ## Roadmap
 

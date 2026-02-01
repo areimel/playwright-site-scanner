@@ -231,7 +231,16 @@ execution:
   crawling:
     maxPages: 50
     waitForNetworkIdle: true
-    
+
+    # Deep crawl configuration (for unlimited page crawling)
+    deepCrawl:
+      checkpointInterval: 100    # Save progress every N pages
+      maxRetries: 3              # Retry failed URLs this many times
+      retryDelayMs: 5000         # Wait between retries
+      requestTimeoutMs: 30000    # Timeout per page request
+      cheerioConcurrency: 10     # Concurrent requests for lightweight crawler
+      playwrightConcurrency: 3   # Concurrent pages for browser crawler
+
   browser:
     headless: true
     disableSandbox: true
@@ -273,3 +282,4 @@ playlists:
 defaults:
   url: "https://example.com"
   crawlSite: true
+  crawlMode: smart  # 'single', 'smart', or 'full'
