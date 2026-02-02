@@ -21,7 +21,12 @@
       "Bash(timeout:*)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm install:*)",
+      "Bash(Select-String -Pattern \"src/\")",
+      "Bash(Select-Object -First 30)"
     ],
     "deny": []
   }

@@ -71,14 +71,14 @@ async function build() {
   console.log(`${colors.dim}📁 Found ${tsFileCount} TypeScript files to compile${colors.reset}`);
 
   // Step 1: Clean dist directory
-  console.log(`${colors.dim}🧹 Cleaning dist/ directory...${colors.reset}`);
+  /* console.log(`${colors.dim}🧹 Cleaning dist/ directory...${colors.reset}`);
   try {
     execSync('rimraf dist', { stdio: 'ignore' });
   } catch (error) {
     console.error(`${colors.red}❌ Failed to clean dist/ directory${colors.reset}`);
     console.error(error.message);
     process.exit(1);
-  }
+  } */
 
   // Step 2: Run TypeScript compiler
   console.log(`${colors.dim}⚙️  Compiling TypeScript...${colors.reset}\n`);

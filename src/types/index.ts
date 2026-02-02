@@ -226,3 +226,6 @@ export interface SiteSummaryData {
     orphanPages: string[];
   };
 }
+
+// Terminal UI types
+export * from './terminal-ui-types.js';

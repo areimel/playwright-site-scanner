@@ -1,0 +1,330 @@
+# Terminal UI Content Configuration
+# This file defines the complete walkthrough flow, styling, and content.
+# Order of steps determines execution order.
+
+styling:
+  colors:
+    primary: "#00FF00"
+    secondary: "#0088FF"
+    warning: "#FFFF00"
+    error: "#FF0000"
+    muted: "#808080"
+    info: "#00FFFF"
+    accent: "#FF8800"
+  symbols:
+    success: "checkmark"
+    warning: "warning"
+    error: "cross"
+    info: "info"
+    arrow: "arrowRight"
+
+messages:
+  crawlModeNote:
+    text: "Note: Sitemap Generator, Site Summary, and LLMs.txt require crawling multiple pages and will be disabled for single-page scans."
+    style:
+      color: muted
+      indent: 2
+
+  deepCrawlWarning:
+    text: "Deep Crawl Mode Selected"
+    style:
+      color: warning
+      prefix: "warning"
+
+  deepCrawlDescription:
+    text: "This mode removes all page limits and is designed for large sites. Only sitemap generation is available in this mode."
+    style:
+      color: muted
+      indent: 2
+      newlineAfter: true
+
+  testSelectionHeader:
+    text: "Choose your testing approach:"
+    style:
+      color: secondary
+      newlineBefore: true
+
+  manualSelectionConfirm:
+    text: "Manual test selection chosen"
+    style:
+      color: primary
+      prefix: "success"
+      newlineAfter: true
+
+  testSelectionPrompt:
+    text: "Select which tests you'd like to run:"
+    style:
+      color: secondary
+      prefix: "info"
+      newlineBefore: true
+
+  reporterHeader:
+    text: "HTML Report Generation:"
+    style:
+      color: secondary
+      prefix: "info"
+
+  reporterEnabled:
+    text: "HTML reporter enabled with screenshots and detailed logs"
+    style:
+      color: primary
+      prefix: "success"
+      newlineAfter: true
+
+steps:
+  urlInput:
+    id: "url-input"
+    order: 1
+    type: "input"
+    prompt:
+      message: "What URL would you like to test?"
+      name: "url"
+    validation:
+      function: "validateUrl"
+    default:
+      source: "config"
+      path: "defaults.url"
+    postAction:
+      function: "resolveAndDisplayUrl"
+    outputKey: "url"
+
+  crawlModeSelection:
+    id: "crawl-mode"
+    order: 2
+    type: "list"
+    preMessages:
+      - ref: "crawlModeNote"
+    prompt:
+      message: "Do you want to scan a single page, or the full site?"
+      name: "crawlMode"
+    choices:
+      - value: "single"
+        name: "Just this page - Scan only the URL provided"
+        short: "Single page"
+      - value: "smart"
+        name: "Smart site crawl (Recommended) - Full site, skip duplicate templated pages"
+        short: "Smart crawl"
+      - value: "full"
+        name: "Full site crawl - Crawl all discovered pages (max 50)"
+        short: "Full crawl"
+      - value: "deep"
+        name: "Deep site crawl - No page limit, sitemap-only (for large sites)"
+        short: "Deep crawl"
+        style:
+          color: warning
+    default:
+      source: "config"
+      path: "defaults.crawlMode"
+      fallback: "smart"
+    options:
+      loop: false
+    postAction:
+      function: "displayCrawlModeMessage"
+    outputKey: "crawlMode"
+
+  deepCrawlConfig:
+    id: "deep-crawl-config"
+    order: 3
+    type: "group"
+    condition:
+      field: "crawlMode"
+      operator: "equals"
+      value: "deep"
+    preMessages:
+      - ref: "deepCrawlWarning"
+      - ref: "deepCrawlDescription"
+    subSteps:
+      crawlerType:
+        type: "list"
+        prompt:
+          message: "Which crawler would you like to use?"
+          name: "crawlerType"
+        choices:
+          - value: "cheerio"
+            name: "Lightweight (HTTP-only) - Faster, works for most sites (Recommended)"
+            short: "Lightweight"
+          - value: "playwright"
+            name: "Full browser - Slower, required for JavaScript-heavy sites"
+            short: "Browser"
+        default:
+          source: "static"
+          value: "cheerio"
+        options:
+          loop: false
+      resumeFromCheckpoint:
+        type: "confirm"
+        prompt:
+          message: "Resume from a previous checkpoint if available?"
+          name: "resumeFromCheckpoint"
+        default:
+          source: "static"
+          value: true
+    postAction:
+      function: "configureDeepCrawl"
+    outputKey: "deepCrawlConfig"
+
+  testSelectionMode:
+    id: "test-selection-mode"
+    order: 4
+    type: "list"
+    preMessages:
+      - ref: "testSelectionHeader"
+    prompt:
+      message: "How would you like to select your tests?"
+      name: "selectionMode"
+    choices:
+      - value: "manual"
+        name: "Manually Select Tests - Choose specific tests individually"
+        short: "Manual Selection"
+        static: true
+    dynamicChoices:
+      source: "playlists"
+      nameTemplate: "${name} - ${description}"
+      valueKey: "id"
+      shortKey: "name"
+      descriptionStyle:
+        color: muted
+    options:
+      loop: false
+    outputKey: "selectionMode"
+
+  manualTestSelection:
+    id: "manual-test-selection"
+    order: 5
+    type: "checkbox"
+    condition:
+      field: "selectionMode"
+      operator: "equals"
+      value: "manual"
+    preMessages:
+      - ref: "manualSelectionConfirm"
+      - ref: "testSelectionPrompt"
+    prompt:
+      message: "Choose your tests:"
+      name: "selectedTestIds"
+    dynamicChoices:
+      source: "tests"
+      nameTemplate: "${name} - ${description}"
+      valueKey: "id"
+      checkedDefault: false
+      descriptionStyle:
+        color: muted
+    validation:
+      minSelected: 1
+      errorMessage: "Please select at least one test to run."
+    options:
+      loop: false
+      helpMode: "always"
+    postAction:
+      function: "processManualTestSelection"
+    outputKey: "selectedTestIds"
+
+  playlistSelection:
+    id: "playlist-selection"
+    order: 5
+    type: "action"
+    condition:
+      field: "selectionMode"
+      operator: "notEquals"
+      value: "manual"
+    action:
+      function: "loadPlaylistTests"
+    postAction:
+      function: "displayPlaylistInfo"
+    outputKey: "selectedTests"
+
+  reporterDisplay:
+    id: "reporter-display"
+    order: 6
+    type: "display"
+    messages:
+      - ref: "reporterHeader"
+      - ref: "reporterEnabled"
+
+  confirmation:
+    id: "confirmation"
+    order: 7
+    type: "confirm"
+    preAction:
+      function: "showConfigurationSummary"
+    prompt:
+      message: "Ready to start testing?"
+      name: "confirmed"
+    default:
+      source: "static"
+      value: true
+    outputKey: "confirmed"
+    postAction:
+      function: "handleConfirmation"
+
+configurationSummary:
+  title: "Test Configuration Summary:"
+  divider:
+    char: "="
+    length: 50
+    color: info
+  fields:
+    - label: "URL"
+      valueFrom: "resolvedUrl"
+
+    - label: "Crawl mode"
+      valueFrom: "crawlMode"
+      transform: "crawlModeLabel"
+
+    - label: "Crawler"
+      valueFrom: "deepCrawlConfig.crawlerType"
+      condition:
+        field: "crawlMode"
+        operator: "equals"
+        value: "deep"
+      transform: "crawlerTypeLabel"
+      prefix: "spider"
+
+    - label: "Resume"
+      valueFrom: "deepCrawlConfig.resumeFromCheckpoint"
+      condition:
+        field: "crawlMode"
+        operator: "equals"
+        value: "deep"
+      transform: "resumeLabel"
+      prefix: "save"
+
+    - label: "Playlist"
+      valueFrom: "usedPlaylist"
+      condition:
+        field: "usedPlaylist"
+        operator: "exists"
+      transform: "playlistLabel"
+
+    - label: "Selected tests"
+      valueFrom: "selectedTests"
+      condition:
+        field: "usedPlaylist"
+        operator: "notExists"
+      transform: "testNamesJoin"
+
+    - label: "Tests"
+      valueFrom: "selectedTests"
+      condition:
+        field: "usedPlaylist"
+        operator: "exists"
+      transform: "testNamesJoin"
+
+    - label: "Viewports"
+      valueFrom: "viewports"
+      condition:
+        field: "crawlMode"
+        operator: "notEquals"
+        value: "deep"
+      transform: "viewportNamesJoin"
+      prefix: "mobile"
+
+    - label: "Output mode"
+      valueFrom: "verboseMode"
+      transform: "outputModeLabel"
+      prefix: "settings"
+
+    - label: "HTML Report"
+      valueFrom: "reporter"
+      transform: "reporterStatusLabel"
+      prefix: "chart"
