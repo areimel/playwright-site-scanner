@@ -26,7 +26,6 @@ Follow the **api-key-scan dual pattern**: per-page scanning during Phase 2 unifi
   "results": [
     {
       "url": "https://example.com/about",
-      "found": true,
       "matchCount": 3,
       "matches": [
         {
@@ -37,10 +36,15 @@ Follow the **api-key-scan dual pattern**: per-page scanning during Phase 2 unifi
       ]
     },
     {
-      "url": "https://example.com/contact",
-      "found": false,
-      "matchCount": 0,
-      "matches": []
+      "url": "https://example.com/products",
+      "matchCount": 1,
+      "matches": [
+        {
+          "context": "...still using the old brand name here...",
+          "element": "h2",
+          "selector": "body > main > section > h2"
+        }
+      ]
     }
   ]
 }
@@ -192,4 +196,4 @@ case 'text-search':
 - **Case sensitivity option**: Defaults to case-insensitive for practical use
 - **Context capture**: Each match includes ~80 characters of surrounding text so developers can identify the exact location without opening the page
 - **JSON output**: Machine-readable format makes it easy to pipe into other tools or scripts
-- **Every URL reported**: The JSON includes all scanned URLs, even those with zero matches, giving a complete picture
+- **Matches only**: The JSON `results` array only includes pages where the text was found, keeping the output concise and scannable. The `totalPagesScanned` field still tells you how many pages were checked.
