@@ -19,9 +19,10 @@ export class TestConfigManager {
       'seo': 'SEO Scan',
       'accessibility': 'Accessibility Scan',
       'site-summary': 'Site Summary',
-      'api-key-scan': 'API Key Security Scan'
+      'api-key-scan': 'API Key Security Scan',
+      'text-search': 'Text Search'
     };
-    
+
     return testNames[testId] || testId;
   }
 
@@ -37,7 +38,8 @@ export class TestConfigManager {
       'seo': 'Analyzes SEO elements including meta tags, headings, and structured data',
       'accessibility': 'Checks for accessibility issues and WCAG compliance using axe-core',
       'site-summary': 'Generates comprehensive site overview report using scraped content',
-      'api-key-scan': 'Scans site for exposed API keys and security tokens'
+      'api-key-scan': 'Scans site for exposed API keys and security tokens',
+      'text-search': 'Search for specific text across all pages and output a JSON report of matches'
     };
     
     return testDescriptions[testId] || 'No description available';
@@ -119,6 +121,12 @@ export class TestConfigManager {
       if (typeof config.reporter.includeDetailedLogs !== 'boolean') {
         errors.push('reporter.includeDetailedLogs must be a boolean');
       }
+    }
+
+    // Validate text-search configuration
+    const hasTextSearch = config.selectedTests.some(t => t.enabled && t.id === 'text-search');
+    if (hasTextSearch && (!config.searchText || config.searchText.trim().length === 0)) {
+      errors.push('searchText is required when text-search test is enabled');
     }
 
     // For single-page scans, filter out tests that require crawling before validation

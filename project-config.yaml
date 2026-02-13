@@ -167,6 +167,19 @@ tests:
     resourceIntensive: false
     outputType: "site-wide"
 
+  text-search:
+    id: "text-search"
+    name: "Text Search"
+    description: "Search for specific text across all pages and output a JSON report of matches"
+    enabled: false
+    phase: 2
+    scope: "session"
+    executionOrder: 5
+    dependencies: []
+    conflictsWith: []
+    resourceIntensive: false
+    outputType: "site-wide"
+
   site-crawling:
     id: "site-crawling"
     name: "Site Crawling"

@@ -51,6 +51,8 @@ export interface TestConfig {
   verboseMode?: boolean;
   usedPlaylist?: string | null;
   deepCrawlConfig?: DeepCrawlConfig;  // Configuration for deep crawl mode
+  searchText?: string;              // Text to search for (used by text-search scan)
+  searchCaseSensitive?: boolean;    // Whether text search is case-sensitive (default: false)
 }
 
 export interface TestType {

@@ -15,6 +15,7 @@ import { ContentScraper } from '@lib/content-scraper.js';
 import { SiteSummaryTester } from '@lib/site-summary-tester.js';
 import { ApiKeyTester } from '@lib/api-key-tester.js';
 import { LlmsTxtGenerator } from '@lib/llms-txt-generator.js';
+import { TextSearchTester } from '@lib/text-search-tester.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -169,6 +170,7 @@ export class TestOrchestrator {
       new SiteSummaryTester(),
       new ApiKeyTester(),
       new LlmsTxtGenerator(),
+      new TextSearchTester(),
       this.errorHandler,
       this.uiStyler
     );

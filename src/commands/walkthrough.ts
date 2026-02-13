@@ -207,6 +207,32 @@ export async function runWalkthrough(): Promise<void> {
 
   console.log(chalk.green(`✅ Selected ${selectedTests.length} test(s)\n`));
 
+  // If text-search is selected, prompt for the search string
+  let searchText: string | undefined;
+  let searchCaseSensitive = false;
+
+  if (selectedTests.some(t => t.id === 'text-search')) {
+    console.log(chalk.blue('🔍 Text Search Configuration:\n'));
+
+    const { text } = await inquirer.prompt([{
+      type: 'input',
+      name: 'text',
+      message: 'What text would you like to search for?',
+      validate: (input: string) => input.trim().length > 0 ? true : 'Please enter a non-empty search string.'
+    }]);
+    searchText = text;
+
+    const { caseSensitive } = await inquirer.prompt([{
+      type: 'confirm',
+      name: 'caseSensitive',
+      message: 'Should the search be case-sensitive?',
+      default: false
+    }]);
+    searchCaseSensitive = caseSensitive;
+
+    console.log(chalk.green(`✅ Will search for: "${searchText}" (${searchCaseSensitive ? 'case-sensitive' : 'case-insensitive'})\n`));
+  }
+
   // Step 4: Reporter Configuration - use config
   console.log(chalk.blue('📊 HTML Report Generation:\n'));
   console.log(chalk.green('✅ HTML reporter enabled with screenshots and detailed logs\n'));
@@ -222,7 +248,9 @@ export async function runWalkthrough(): Promise<void> {
     reporter: reporterConfig,
     verboseMode,
     usedPlaylist,
-    deepCrawlConfig
+    deepCrawlConfig,
+    searchText,
+    searchCaseSensitive
   });
 }
 
@@ -244,6 +272,10 @@ async function showConfirmation(config: TestConfig): Promise<void> {
   if (config.crawlMode === 'deep' && config.deepCrawlConfig) {
     console.log(chalk.white(`🕷️  Crawler: ${config.deepCrawlConfig.crawlerType === 'cheerio' ? 'Lightweight (HTTP)' : 'Full browser'}`));
     console.log(chalk.white(`💾 Resume: ${config.deepCrawlConfig.resumeFromCheckpoint ? 'Yes (if checkpoint exists)' : 'No (fresh start)'}`));
+  }
+
+  if (config.searchText) {
+    console.log(chalk.white(`🔍 Search text: "${config.searchText}" (${config.searchCaseSensitive ? 'case-sensitive' : 'case-insensitive'})`));
   }
 
   if (config.usedPlaylist) {

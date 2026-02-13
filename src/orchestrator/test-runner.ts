@@ -15,6 +15,7 @@ import { ContentScraper } from '@lib/content-scraper.js';
 import { SiteSummaryTester } from '@lib/site-summary-tester.js';
 import { ApiKeyTester } from '@lib/api-key-tester.js';
 import { LlmsTxtGenerator } from '@lib/llms-txt-generator.js';
+import { TextSearchTester } from '@lib/text-search-tester.js';
 import { BrowserManager } from './browser-manager.js';
 import { ErrorHandler } from './error-handler.js';
 import { UIStyler } from './ui-styler.js';
@@ -38,6 +39,7 @@ export class TestRunner {
   private siteSummaryTester: SiteSummaryTester;
   private apiKeyTester: ApiKeyTester;
   private llmsTxtGenerator: LlmsTxtGenerator;
+  private textSearchTester: TextSearchTester;
   private errorHandler: ErrorHandler;
   private uiStyler: UIStyler;
 
@@ -57,6 +59,7 @@ export class TestRunner {
     siteSummaryTester: SiteSummaryTester,
     apiKeyTester: ApiKeyTester,
     llmsTxtGenerator: LlmsTxtGenerator,
+    textSearchTester: TextSearchTester,
     errorHandler: ErrorHandler,
     uiStyler: UIStyler
   ) {
@@ -72,6 +75,7 @@ export class TestRunner {
     this.siteSummaryTester = siteSummaryTester;
     this.apiKeyTester = apiKeyTester;
     this.llmsTxtGenerator = llmsTxtGenerator;
+    this.textSearchTester = textSearchTester;
     this.errorHandler = errorHandler;
     this.uiStyler = uiStyler;
   }
@@ -278,6 +282,8 @@ export class TestRunner {
           switch (testId) {
             case 'api-key-scan':
               return await this.apiKeyTester.generateFinalReport(this.dataManager.sessionId, urls);
+            case 'text-search':
+              return await this.textSearchTester.generateTextSearchReport(this.dataManager.sessionId, urls, config.searchText!, config.searchCaseSensitive ?? false);
             default:
               throw new Error(`Unknown session test: ${testId}`);
           }
@@ -497,6 +503,10 @@ export class TestRunner {
                 this.uiStyler.displayTestProgress('🔐 API key scan');
                 return await this.apiKeyTester.runApiKeyScan(page!, url, this.dataManager.sessionId);
 
+              case 'text-search':
+                this.uiStyler.displayTestProgress('🔍 Text search');
+                return await this.textSearchTester.runTextSearch(page!, url, config.searchText!, config.searchCaseSensitive ?? false);
+
               default:
                 throw new Error(`Unknown non-conflicting test type: ${testType}`);
             }
@@ -669,7 +679,7 @@ export class TestRunner {
     screenshots: string[];
   } {
     // Tests that don't modify DOM or viewport and can run in parallel
-    const nonConflictingTests = ['content-scraping', 'seo', 'api-key-scan'];
+    const nonConflictingTests = ['content-scraping', 'seo', 'api-key-scan', 'text-search'];
     
     // Tests that modify viewport or inject scripts (must run separately)
     const conflictingTests = ['accessibility', 'screenshots'];
@@ -695,7 +705,8 @@ export class TestRunner {
       'accessibility': 'Accessibility Scan',
       'site-summary': 'Site Summary',
       'api-key-scan': 'API Key Security Scan',
-      'llms-txt': 'LLMs.txt Generator'
+      'llms-txt': 'LLMs.txt Generator',
+      'text-search': 'Text Search'
     };
 
     return testNames[testId] || testId;
